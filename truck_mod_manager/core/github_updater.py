@@ -251,6 +251,8 @@ class GitHubUpdateCheckerWorker(QThread):
                                 info.tarball_url = asset.get("browser_download_url", "")
                                 info.asset_api_url = asset.get("url", "")
                                 break
+                        if not info.tarball_url:
+                            info.tarball_url = data.get("tarball_url", "")
 
         except urllib.error.HTTPError as e:
             if e.code == 404:
