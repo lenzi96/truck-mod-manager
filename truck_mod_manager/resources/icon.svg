@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="truckGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b82f6" />
+      <stop offset="50%" stop-color="#2563eb" />
+      <stop offset="100%" stop-color="#1d4ed8" />
+    </linearGradient>
+    <linearGradient id="glowGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#0284c7" />
+    </linearGradient>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e293b" />
+      <stop offset="100%" stop-color="#0f172a" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background rounded plate -->
+  <rect x="4" y="4" width="120" height="120" rx="28" fill="url(#bgGrad)" stroke="#334155" stroke-width="3" />
+
+  <!-- Road / Highway Perspective -->
+  <polygon points="24,104 104,104 74,68 54,68" fill="#1e293b" opacity="0.8" />
+  <line x1="64" y1="72" x2="64" y2="82" stroke="#f59e0b" stroke-width="3" stroke-linecap="round" />
+  <line x1="64" y1="88" x2="64" y2="100" stroke="#f59e0b" stroke-width="3.5" stroke-linecap="round" />
+
+  <!-- Semi-Truck Silhouette / Icon -->
+  <g transform="translate(18, 22)">
+    <!-- Cabin Main -->
+    <path d="M 12,42 L 32,24 L 62,24 L 66,42 L 72,42 C 75,42 77,44 77,47 L 77,66 L 8,66 L 8,46 C 8,43.8 9.8,42 12,42 Z" fill="url(#truckGrad)" />
+    
+    <!-- Windshield -->
+    <path d="M 34,28 L 58,28 L 62,42 L 34,42 Z" fill="#93c5fd" opacity="0.9" />
+
+    <!-- Side Window -->
+    <path d="M 18,34 L 30,34 L 30,42 L 18,42 Z" fill="#93c5fd" opacity="0.6" />
+
+    <!-- Grill & Bumper -->
+    <rect x="66" y="46" width="10" height="18" rx="2" fill="#475569" />
+    <line x1="68" y1="49" x2="74" y2="49" stroke="#94a3b8" stroke-width="1.5" />
+    <line x1="68" y1="53" x2="74" y2="53" stroke="#94a3b8" stroke-width="1.5" />
+    <line x1="68" y1="57" x2="74" y2="57" stroke="#94a3b8" stroke-width="1.5" />
+    <line x1="68" y1="61" x2="74" y2="61" stroke="#94a3b8" stroke-width="1.5" />
+
+    <!-- Headlights (Glow) -->
+    <circle cx="75" cy="50" r="3" fill="#fef08a" />
+    <circle cx="75" cy="62" r="3" fill="#fef08a" />
+
+    <!-- Wheels -->
+    <!-- Front Wheel -->
+    <circle cx="62" cy="66" r="9" fill="#0f172a" stroke="#64748b" stroke-width="2.5" />
+    <circle cx="62" cy="66" r="4" fill="#94a3b8" />
+    <!-- Rear Wheel 1 -->
+    <circle cx="20" cy="66" r="9" fill="#0f172a" stroke="#64748b" stroke-width="2.5" />
+    <circle cx="20" cy="66" r="4" fill="#94a3b8" />
+    <!-- Rear Wheel 2 -->
+    <circle cx="36" cy="66" r="9" fill="#0f172a" stroke="#64748b" stroke-width="2.5" />
+    <circle cx="36" cy="66" r="4" fill="#94a3b8" />
+
+    <!-- Exhaust Pipe -->
+    <rect x="14" y="16" width="4" height="14" rx="1.5" fill="#94a3b8" />
+    <path d="M 14,16 L 10,12" stroke="#94a3b8" stroke-width="3" stroke-linecap="round" />
+  </g>
+
+  <!-- Mod / Gear Badge in corner -->
+  <g transform="translate(86, 12)">
+    <circle cx="16" cy="16" r="16" fill="#10b981" stroke="#064e3b" stroke-width="2" />
+    <!-- Mod Bolt / Plus -->
+    <path d="M 16,8 L 16,24 M 8,16 L 24,16" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" />
+  </g>
+</svg>

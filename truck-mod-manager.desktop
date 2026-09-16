@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Truck Mod Manager
+Comment=Mod Manager für Euro Truck Simulator 2 & American Truck Simulator
+Exec=truck-mod-manager
+Icon=truck-mod-manager
+Terminal=false
+Type=Application
+Categories=Game;Utility;
+Keywords=ets2;ats;eurotrucks2;amtrucks;truck;simulator;mod;manager;
+StartupWMClass=truck-mod-manager

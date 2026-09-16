@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "truck-mod-manager"
+version = "1.0.0"
+description = "Native Mod Manager for Euro Truck Simulator 2 & American Truck Simulator on Linux"
+readme = "README.md"
+authors = [{ name = "Julian" }]
+license = { text = "GPL-3.0-or-later" }
+requires-python = ">=3.9"
+dependencies = [
+    "PyQt6>=6.4.0",
+]
+
+[project.scripts]
+truck-mod-manager = "truck_mod_manager.app:main"
