@@ -15,5 +15,7 @@ setup(
     },
     install_requires=[
         "PyQt6>=6.4.0",
+        "requests>=2.28.0",
     ],
 )
+

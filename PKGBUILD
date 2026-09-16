@@ -6,8 +6,9 @@ pkgdesc="Native Mod Manager for Euro Truck Simulator 2 & American Truck Simulato
 arch=('any')
 url="https://github.com/julian/truck-mod-manager"
 license=('GPL3')
-depends=('python' 'python-pyqt6')
+depends=('python' 'python-pyqt6' 'python-requests')
 makedepends=('python-setuptools' 'python-build' 'python-installer' 'python-wheel')
+
 source=()
 sha256sums=()
 

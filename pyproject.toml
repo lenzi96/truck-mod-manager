@@ -12,7 +12,9 @@ license = { text = "GPL-3.0-or-later" }
 requires-python = ">=3.9"
 dependencies = [
     "PyQt6>=6.4.0",
+    "requests>=2.28.0",
 ]
+
 
 [project.scripts]
 truck-mod-manager = "truck_mod_manager.app:main"

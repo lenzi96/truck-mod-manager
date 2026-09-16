@@ -6,14 +6,22 @@ import os
 import shutil
 import subprocess
 import time
+import urllib.request
+import urllib.error
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Tuple
-import requests
+
+try:
+    import requests
+except ImportError:
+    requests = None
+
 from PyQt6.QtCore import QObject, QThread, pyqtSignal
 
 from truck_mod_manager.core.config import config
+
 
 
 DOWNLOADS_CACHE_DIR = Path(config.get("cache_dir", Path.home() / ".cache" / "truck-mod-manager")) / "downloads"
@@ -41,48 +49,51 @@ class ModDownloadWorker(QThread):
         self.url = url
         self.target_dir = Path(target_dir)
         self.suggested_filename = suggested_filename
-        self.session = requests.Session()
-        self.session.headers.update({
-            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-        })
 
     def run(self):
         try:
             self.target_dir.mkdir(parents=True, exist_ok=True)
 
-            resp = self.session.get(self.url, stream=True, timeout=15)
-            if resp.status_code != 200:
-                self.download_error.emit(f"Server antwortete mit HTTP {resp.status_code}")
-                return
+            req = urllib.request.Request(self.url, headers={
+                "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+            })
 
-            # Determine filename
-            filename = self.suggested_filename
-            if not filename:
-                cd = resp.headers.get("Content-Disposition", "")
-                if "filename=" in cd:
-                    filename = cd.split("filename=")[-1].strip("\"' ")
-                else:
-                    filename = self.url.split("?")[0].split("/")[-1] or "mod_download.scs"
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                status_code = getattr(resp, "status", 200)
+                if status_code != 200:
+                    self.download_error.emit(f"Server antwortete mit HTTP {status_code}")
+                    return
 
-            # Clean filename
-            filename = os.path.basename(filename)
-            temp_path = DOWNLOADS_CACHE_DIR / f"tmp_{filename}"
-            final_download_path = DOWNLOADS_CACHE_DIR / filename
+                # Determine filename
+                filename = self.suggested_filename
+                if not filename:
+                    cd = resp.headers.get("Content-Disposition", "")
+                    if "filename=" in cd:
+                        filename = cd.split("filename=")[-1].strip("\"' ")
+                    else:
+                        filename = self.url.split("?")[0].split("/")[-1] or "mod_download.scs"
 
-            total_bytes = int(resp.headers.get("Content-Length", 0))
-            downloaded = 0
-            start_time = time.time()
-            last_emit_time = start_time
+                # Clean filename
+                filename = os.path.basename(filename)
+                temp_path = DOWNLOADS_CACHE_DIR / f"tmp_{filename}"
+                final_download_path = DOWNLOADS_CACHE_DIR / filename
 
-            with open(temp_path, "wb") as f:
-                for chunk in resp.iter_content(chunk_size=65536):
-                    if self.isInterruptionRequested():
-                        resp.close()
-                        if temp_path.exists():
-                            temp_path.unlink()
-                        return
+                total_bytes = int(resp.headers.get("Content-Length", 0))
+                downloaded = 0
+                start_time = time.time()
+                last_emit_time = start_time
 
-                    if chunk:
+                with open(temp_path, "wb") as f:
+                    while True:
+                        if self.isInterruptionRequested():
+                            if temp_path.exists():
+                                temp_path.unlink()
+                            return
+
+                        chunk = resp.read(65536)
+                        if not chunk:
+                            break
+
                         f.write(chunk)
                         downloaded += len(chunk)
 
@@ -103,6 +114,7 @@ class ModDownloadWorker(QThread):
 
                             self.progress_updated.emit(downloaded, total_bytes, speed_str, eta_str)
                             last_emit_time = now
+
 
             if temp_path.exists():
                 temp_path.replace(final_download_path)

@@ -172,7 +172,21 @@ class InstallWorker(QThread):
 
             launcher_path = bin_dir / BIN_NAME
             launcher_content = f"""#!/usr/bin/env bash
+# Truck Mod Manager launcher
+
+if [ -z "$QT_QPA_PLATFORM" ] && [ -n "$WAYLAND_DISPLAY" ]; then
+    export QT_QPA_PLATFORM="wayland;xcb"
+fi
+
 SHARE_PATH="{share_dir}"
+if [ ! -d "$SHARE_PATH" ]; then
+    if [ -d "$HOME/.local/share/truck-mod-manager" ]; then
+        SHARE_PATH="$HOME/.local/share/truck-mod-manager"
+    elif [ -d "/usr/share/truck-mod-manager" ]; then
+        SHARE_PATH="/usr/share/truck-mod-manager"
+    fi
+fi
+
 exec python3 "$SHARE_PATH/main.py" "$@"
 """
             launcher_path.write_text(launcher_content, encoding="utf-8")
@@ -186,10 +200,28 @@ exec python3 "$SHARE_PATH/main.py" "$@"
             if src_icon.exists():
                 shutil.copy2(src_icon, icon_dir / f"{BIN_NAME}.svg")
 
-            # Install Desktop file
+            # Install Desktop file with absolute Exec path
             src_desktop = src_root / f"{BIN_NAME}.desktop"
             if src_desktop.exists():
-                shutil.copy2(src_desktop, app_dir / f"{BIN_NAME}.desktop")
+                content = src_desktop.read_text(encoding="utf-8")
+                content = re.sub(r"^Exec=.*", f"Exec={bin_dir / BIN_NAME}", content, flags=re.MULTILINE)
+                content = re.sub(r"^Icon=.*", f"Icon={BIN_NAME}", content, flags=re.MULTILINE)
+                (app_dir / f"{BIN_NAME}.desktop").write_text(content, encoding="utf-8")
+                (app_dir / f"{BIN_NAME}.desktop").chmod(0o755)
+
+                # Desktop shortcut if enabled
+                if self.create_desktop_shortcut:
+                    for dt_dir in [Path.home() / "Desktop", Path.home() / "Schreibtisch"]:
+                        if dt_dir.is_dir():
+                            dt_file = dt_dir / f"{BIN_NAME}.desktop"
+                            dt_file.write_text(content, encoding="utf-8")
+                            dt_file.chmod(0o755)
+                            try:
+                                subprocess.run(["gio", "set", str(dt_file), "metadata::trusted", "true"], check=False, capture_output=True)
+                            except Exception:
+                                pass
+                            break
+
 
             if self.prepare_dirs:
                 self.progress.emit(85)

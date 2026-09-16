@@ -5,15 +5,25 @@ Supports asynchronous background downloading and thumbnail caching.
 """
 import hashlib
 import html
+import json
 import os
 import re
+import urllib.request
+import urllib.parse
+import urllib.error
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional
-import requests
+from typing import Dict, List, Optional, Tuple
+
+try:
+    import requests
+except ImportError:
+    requests = None
+
 from PyQt6.QtCore import QObject, QThread, pyqtSignal
 
 from truck_mod_manager.core.config import config
+
 
 
 CACHE_DIR = Path(config.get("cache_dir", Path.home() / ".cache" / "truck-mod-manager")) / "thumbnails"
@@ -58,25 +68,52 @@ class TruckyClient:
     BASE_URL = "https://truckymods.io"
 
     @classmethod
-    def get_session(cls) -> requests.Session:
-        s = requests.Session()
-        s.headers.update({
+    def _http_get(cls, url: str, timeout: int = 12, extra_headers: Optional[Dict[str, str]] = None) -> Optional[str]:
+        headers = {
             "User-Agent": USER_AGENT,
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
             "Accept-Language": "de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7",
-        })
-        return s
+        }
+        if extra_headers:
+            headers.update(extra_headers)
+
+        if requests is not None:
+            try:
+                s = requests.Session()
+                s.headers.update(headers)
+                r = s.get(url, timeout=timeout)
+                if r.status_code == 200:
+                    return r.text
+            except Exception:
+                pass
+
+        try:
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                if getattr(resp, "status", 200) == 200:
+                    return resp.read().decode("utf-8", errors="replace")
+        except Exception as e:
+            print(f"[TruckyClient] Fehler bei Abruf von {url}: {e}")
+        return None
+
+    @classmethod
+    def get_session(cls):
+        if requests is not None:
+            s = requests.Session()
+            s.headers.update({
+                "User-Agent": USER_AGENT,
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+                "Accept-Language": "de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7",
+            })
+            return s
+        return None
 
     @classmethod
     def fetch_category(cls, game_slug: str = "euro-truck-simulator-2", category_slug: str = "all") -> List[TruckyModCard]:
         url = f"{cls.BASE_URL}/{game_slug}/{category_slug}"
-        session = cls.get_session()
-        try:
-            resp = session.get(url, timeout=12)
-            if resp.status_code == 200:
-                return cls.parse_cards(resp.text, default_game=game_slug)
-        except Exception as e:
-            print(f"[TruckyClient] Fehler beim Laden von {url}: {e}")
+        text = cls._http_get(url, timeout=12)
+        if text:
+            return cls.parse_cards(text, default_game=game_slug)
         return []
 
     @classmethod
@@ -84,20 +121,17 @@ class TruckyClient:
         if not query.strip():
             return cls.fetch_category(game_slug or "euro-truck-simulator-2", "all")
 
-        url = f"{cls.BASE_URL}/search"
-        params = {"query": query.strip()}
-        session = cls.get_session()
-        try:
-            resp = session.get(url, params=params, timeout=12)
-            if resp.status_code == 200:
-                mods = cls.parse_cards(resp.text, default_game=game_slug or "euro-truck-simulator-2")
-                if game_slug:
-                    filtered = [m for m in mods if game_slug in m.url or not m.game_slug or m.game_slug == game_slug]
-                    return filtered if filtered else mods
-                return mods
-        except Exception as e:
-            print(f"[TruckyClient] Fehler bei der Suche nach '{query}': {e}")
+        encoded_q = urllib.parse.quote_plus(query.strip())
+        url = f"{cls.BASE_URL}/search?query={encoded_q}"
+        text = cls._http_get(url, timeout=12)
+        if text:
+            mods = cls.parse_cards(text, default_game=game_slug or "euro-truck-simulator-2")
+            if game_slug:
+                filtered = [m for m in mods if game_slug in m.url or not m.game_slug or m.game_slug == game_slug]
+                return filtered if filtered else mods
+            return mods
         return []
+
 
     @classmethod
     def parse_cards(cls, html_content: str, default_game: str = "euro-truck-simulator-2") -> List[TruckyModCard]:
@@ -173,42 +207,44 @@ class TruckyClient:
         Resolves the direct Cloudflare R2 download URL and filename from a TruckyMods project page.
         Returns: (success, direct_url, filename, error_message)
         """
-        session = cls.get_session()
         try:
-            r = session.get(mod_url, timeout=12)
-            if r.status_code != 200:
-                return False, None, None, f"Mod-Seite antwortete mit HTTP {r.status_code}"
+            page_html = cls._http_get(mod_url, timeout=12)
+            if not page_html:
+                return False, None, None, "Mod-Seite konnte nicht geladen werden."
 
-            proj_m = re.search(r':project_id=\"(\d+)\"', r.text)
-            build_m = re.search(r':build_id=\"(\d+)\"', r.text)
-            csrf_m = re.search(r'name=\"csrf-token\"\s+content=\"([^\"]+)\"', r.text)
+            proj_m = re.search(r':project_id=\"(\d+)\"', page_html)
+            build_m = re.search(r':build_id=\"(\d+)\"', page_html)
+            csrf_m = re.search(r'name=\"csrf-token\"\s+content=\"([^\"]+)\"', page_html)
 
             if not (proj_m and build_m):
                 return False, None, None, "Keine direkte Download-Build-ID auf der Mod-Seite gefunden."
 
-            session.headers.update({
+            post_url = "https://truckymods.io/projects/createDownloadUrl"
+            payload = json.dumps({
+                "project_id": int(proj_m.group(1)),
+                "build_id": int(build_m.group(1))
+            }).encode("utf-8")
+
+            req = urllib.request.Request(post_url, data=payload, headers={
+                "User-Agent": USER_AGENT,
+                "Content-Type": "application/json",
+                "Accept": "application/json",
                 "Referer": mod_url,
                 "Origin": "https://truckymods.io",
                 "X-Requested-With": "XMLHttpRequest",
+                "X-CSRF-TOKEN": csrf_m.group(1) if csrf_m else ""
             })
-            if csrf_m:
-                session.headers["X-CSRF-TOKEN"] = csrf_m.group(1)
 
-            resp = session.post("https://truckymods.io/projects/createDownloadUrl", json={
-                "project_id": int(proj_m.group(1)),
-                "build_id": int(build_m.group(1))
-            }, timeout=12)
-
-            if resp.status_code == 200:
-                data = resp.json()
+            with urllib.request.urlopen(req, timeout=12) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
                 if data.get("rateLimited"):
                     return False, None, None, "Rate-Limit erreicht (maximal 1 Download-Erstellung pro Mod pro Minute). Bitte kurz warten."
                 if data.get("success") and data.get("url"):
                     return True, data["url"], data.get("fileName", "mod.scs"), None
                 return False, None, None, data.get("message", "Direktlink konnte nicht generiert werden.")
-            else:
-                return False, None, None, f"API antwortete mit HTTP {resp.status_code}"
 
+        except urllib.error.HTTPError as e:
+            return False, None, None, f"API antwortete mit HTTP {e.code}"
         except Exception as e:
             return False, None, None, f"Verbindungsfehler: {e}"
 
@@ -237,18 +273,20 @@ class TruckyClient:
         url_hash = hashlib.md5(image_url.encode("utf-8")).hexdigest()
         local_path = CACHE_DIR / f"{url_hash}{ext}"
 
-        session = cls.get_session()
         try:
-            r = session.get(image_url, timeout=5)
-            if r.status_code == 200 and len(r.content) > 0:
-                tmp_path = CACHE_DIR / f"{url_hash}.tmp"
-                with open(tmp_path, "wb") as f:
-                    f.write(r.content)
-                tmp_path.replace(local_path)
-                return local_path
+            req = urllib.request.Request(image_url, headers={"User-Agent": USER_AGENT})
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                content = resp.read()
+                if len(content) > 0:
+                    tmp_path = CACHE_DIR / f"{url_hash}.tmp"
+                    with open(tmp_path, "wb") as f:
+                        f.write(content)
+                    tmp_path.replace(local_path)
+                    return local_path
         except Exception:
             pass
         return None
+
 
     @classmethod
     def get_thumbnail_path(cls, image_url: str) -> Optional[Path]:

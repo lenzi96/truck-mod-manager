@@ -113,12 +113,30 @@ Ein nativer, moderner und zerstörungsfreier **Mod Manager für Euro Truck Simul
 ---
 
 
-## 📦 Installation
+## 📦 Installation & Voraussetzungen
+
+### 1. Systemvoraussetzungen (Dependencies)
+
+Stelle sicher, dass **Python 3 (>= 3.9)** und **PyQt6** installiert sind:
+- **Arch Linux / CachyOS / Manjaro**:
+  ```bash
+  sudo pacman -S python python-pyqt6 python-requests p7zip
+  ```
+- **Ubuntu / Debian / Linux Mint**:
+  ```bash
+  sudo apt install python3 python3-pyqt6 python3-requests p7zip-full
+  ```
+- **Fedora / RHEL**:
+  ```bash
+  sudo dnf install python3 python3-pyqt6 python3-requests p7zip
+  ```
+
+---
 
 ### Option 1: Grafischer Installer (Wizard mit GUI) - Empfohlen
 
 ```bash
-cd /run/media/julian/HDD/Linux/truck-mod-manager
+cd truck-mod-manager
 ./gui-installer.py
 ```
 Startet den modernen 5-Schritte Installationsassistenten mit automatischer Systemprüfung, Auswahl des Installationsmodus (Benutzer `~/.local` oder systemweit `/usr`), Deinstallationsoption und Direktstart.
@@ -126,24 +144,25 @@ Startet den modernen 5-Schritte Installationsassistenten mit automatischer Syste
 ### Option 2: Schnelle Benutzer-Installation (Terminal, ohne Root/Sudo)
 
 ```bash
-cd /run/media/julian/HDD/Linux/truck-mod-manager
+cd truck-mod-manager
 ./install.sh --user
 ```
-Installiert den Starter nach `~/.local/bin/truck-mod-manager` und bindet das Programm in dein Startmenü ein.
+Installiert das Programm nach `~/.local/bin/truck-mod-manager` und richtet die Desktop- und Startmenü-Verknüpfungen ein.
 
 ### Option 3: Systemweite Terminal-Installation
 
 ```bash
-cd /run/media/julian/HDD/Linux/truck-mod-manager
+cd truck-mod-manager
 sudo ./install.sh
 ```
 
 ### Option 4: Direkt aus dem Quellverzeichnis starten
 
 ```bash
-cd /run/media/julian/HDD/Linux/truck-mod-manager
+cd truck-mod-manager
 python3 main.py
 ```
+
 
 ---
 
