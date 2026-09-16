@@ -13,10 +13,11 @@ from PyQt6.QtWidgets import QApplication, QMessageBox
 
 from truck_mod_manager.ui.main_window import MainWindow
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 
 
 def main():
+
     crash_dir = Path.home() / ".local" / "share" / "truck-mod-manager"
     crash_log = crash_dir / "startup_crash.log"
 
