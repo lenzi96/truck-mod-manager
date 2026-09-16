@@ -140,6 +140,27 @@ class TestProModsManager(unittest.TestCase):
         rusmap_idx = sorted_names.index("rusmap-model.scs")
         self.assertGreater(rusmap_idx, assets_idx)
 
+    def test_promods_pack_card_ui_rendering(self):
+        """Verifies ProModsPackCard instantiates without AttributeError when mods are found."""
+        import sys
+        from PyQt6.QtWidgets import QApplication
+        from truck_mod_manager.ui.views.promods_view import ProModsPackCard
+
+        app = QApplication.instance() or QApplication(sys.argv)
+
+        mods = [
+            _make_mod("promods-assets-v270.scs", "ProMods Assets"),
+            _make_mod("promods-def-v270.scs", "ProMods Def"),
+            _make_mod("promods-map-v270.scs", "ProMods Map"),
+        ]
+        statuses = ProModsManager.scan_promods(mods, GameType.ETS2)
+        europe = next(s for s in statuses if s.pack_type == ProModsPackType.EUROPE)
+
+        # Card should render cleanly without 'str' object has no attribute 'name' error
+        card = ProModsPackCard(europe)
+        self.assertIsNotNone(card)
+
 
 if __name__ == "__main__":
     unittest.main()
+

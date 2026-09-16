@@ -1,6 +1,6 @@
 # Maintainer: Julian
 pkgname=truck-mod-manager
-pkgver=1.0.0
+pkgver=1.0.2
 pkgrel=1
 pkgdesc="Native Mod Manager for Euro Truck Simulator 2 & American Truck Simulator on Linux"
 arch=('any')

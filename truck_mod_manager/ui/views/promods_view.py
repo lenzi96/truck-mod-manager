@@ -103,8 +103,9 @@ class ProModsPackCard(QFrame):
             if comp.found_mod:
                 icon_lbl = QLabel("✔️")
                 icon_lbl.setStyleSheet("color: #34d399; font-weight: bold;")
-                name_lbl = QLabel(f"<b>{comp.name}</b> <span style='color: #94a3b8;'>({comp.found_mod.file_path.name})</span>")
+                name_lbl = QLabel(f"<b>{comp.name}</b> <span style='color: #94a3b8;'>({comp.found_mod.file_name})</span>")
                 name_lbl.setStyleSheet("color: #e2e8f0; font-size: 12px;")
+
             else:
                 icon_lbl = QLabel("❌" if not comp.is_optional else "➖")
                 icon_lbl.setStyleSheet("color: #f87171;" if not comp.is_optional else "color: #94a3b8;")
