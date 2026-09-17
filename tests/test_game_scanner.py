@@ -40,6 +40,24 @@ class TestGameScannerVersionDetection(unittest.TestCase):
         ver = GameScanner._extract_pe_version(pe_file)
         self.assertEqual(ver, "1.51.2")
 
+    def test_extract_pe_version_ignores_corrupt_early_sig(self):
+        pe_file = self.root / "eurotrucks2_false_pos.exe"
+        f_ms = (1 << 16) | 51
+        f_ls = (2 << 16) | 0
+        corrupted = b"PADDING" + struct.pack(
+            "<IIIIIIIIIIIII",
+            0xFEEF04BD, 0x79812A75, (256 << 16) | 4, (3873 << 16) | 29952, 0, 0,
+            0, 0, 0, 0, 0, 0, 0
+        )
+        valid = b"MORE_PADDING" + struct.pack(
+            "<IIIIIIIIIIIII",
+            0xFEEF04BD, 0x00010000, f_ms, f_ls, f_ms, f_ls,
+            0, 0, 0x00040004, 1, 0, 0, 0
+        )
+        pe_file.write_bytes(corrupted + valid)
+        ver = GameScanner._extract_pe_version(pe_file)
+        self.assertEqual(ver, "1.51.2")
+
     def test_extract_pe_version_fallback_regex(self):
         pe_file = self.root / "dummy.exe"
         pe_file.write_bytes(b"some headers ... init ver.1.51.1.5s ... more binary data")

@@ -124,26 +124,33 @@ class GameScanner:
             return None
         try:
             with open(exe_path, "rb") as f:
-                data = f.read(32 * 1024 * 1024)
-            sig = b"\xbd\x04\xef\xfe"  # VS_FIXEDFILEINFO magic
-            idx = data.find(sig)
-            if idx != -1 and len(data) >= idx + 52:
-                struc = data[idx:idx + 24]
-                _, _, f_ms, f_ls, p_ms, p_ls = struct.unpack("<IIIIII", struc)
-                f_major = f_ms >> 16
-                f_minor = f_ms & 0xFFFF
-                f_build = f_ls >> 16
-                f_rev = f_ls & 0xFFFF
-                if f_major > 0:
-                    if f_rev > 0:
-                        return f"{f_major}.{f_minor}.{f_build}.{f_rev}"
-                    elif f_build > 0:
-                        return f"{f_major}.{f_minor}.{f_build}"
-                    else:
-                        return f"{f_major}.{f_minor}"
+                data = f.read(128 * 1024 * 1024)
+            sig = b"\xbd\x04\xef\xfe"  # VS_FIXEDFILEINFO magic (0xFEEF04BD)
+            idx = 0
+            while True:
+                pos = data.find(sig, idx)
+                if pos == -1:
+                    break
+                if len(data) >= pos + 52:
+                    unp = struct.unpack("<IIIIIIIIIIIII", data[pos:pos + 52])
+                    magic, struc_ver, f_ms, f_ls = unp[0], unp[1], unp[2], unp[3]
+                    # Microsoft specification: magic == 0xFEEF04BD and struc_ver == 0x00010000
+                    if magic == 0xFEEF04BD and struc_ver == 0x00010000:
+                        f_major = f_ms >> 16
+                        f_minor = f_ms & 0xFFFF
+                        f_build = f_ls >> 16
+                        f_rev = f_ls & 0xFFFF
+                        if 1 <= f_major <= 10:
+                            if f_rev > 0:
+                                return f"{f_major}.{f_minor}.{f_build}.{f_rev}"
+                            elif f_build > 0:
+                                return f"{f_major}.{f_minor}.{f_build}"
+                            else:
+                                return f"{f_major}.{f_minor}"
+                idx = pos + 4
 
             # Fallback regex search on binary bytes
-            m = re.search(rb"init ver\.?\s*([0-9]+\.[0-9]+(?:\.[0-9]+)*[a-z]?)", data)
+            m = re.search(rb"init ver\.?\s*([1-9]\.[0-9]+(?:\.[0-9]+)*[a-z]?)", data)
             if m:
                 return m.group(1).decode("ascii", errors="ignore").strip()
         except Exception as e:
@@ -157,11 +164,11 @@ class GameScanner:
             return None
         try:
             with open(bin_path, "rb") as f:
-                data = f.read(32 * 1024 * 1024)
-            m = re.search(rb"init ver\.?\s*([0-9]+\.[0-9]+(?:\.[0-9]+)*[a-z]?)", data)
+                data = f.read(128 * 1024 * 1024)
+            m = re.search(rb"init ver\.?\s*([1-9]\.[0-9]+(?:\.[0-9]+)*[a-z]?)", data)
             if m:
                 return m.group(1).decode("ascii", errors="ignore").strip()
-            m2 = re.search(rb"(?:Euro Truck Simulator 2|American Truck Simulator)\s+v?([0-9]+\.[0-9]+(?:\.[0-9]+)*[a-z]?)", data)
+            m2 = re.search(rb"(?:Euro Truck Simulator 2|American Truck Simulator)\s+v?([1-9]\.[0-9]+(?:\.[0-9]+)*[a-z]?)", data)
             if m2:
                 return m2.group(1).decode("ascii", errors="ignore").strip()
         except Exception as e:
@@ -208,17 +215,20 @@ class GameScanner:
                 try:
                     with open(log_file, "r", encoding="utf-8", errors="ignore") as f:
                         for idx, line in enumerate(f):
-                            if idx > 500:
+                            if idx > 1000:
                                 break
-                            m = re.search(r"init ver\.?\s*([0-9]+\.[0-9]+(?:\.[0-9]+)*\w*)", line, re.IGNORECASE)
+                            m = re.search(r"init ver\.?\s*([1-9]\.[0-9]+(?:\.[0-9]+)*\w*)", line, re.IGNORECASE)
                             if m:
                                 return m.group(1).strip()
-                            m2 = re.search(r"(?:Euro Truck Simulator 2|American Truck Simulator)\s+init\s+ver\.?\s*([0-9]+\.[0-9]+(?:\.[0-9]+)*\w*)", line, re.IGNORECASE)
+                            m2 = re.search(r"(?:Euro Truck Simulator 2|American Truck Simulator)\s+init\s+ver\.?\s*([1-9]\.[0-9]+(?:\.[0-9]+)*\w*)", line, re.IGNORECASE)
                             if m2:
                                 return m2.group(1).strip()
-                            m3 = re.search(r"\[sys\]\s+(?:game\s+)?version[:\s]+([0-9]+\.[0-9]+(?:\.[0-9]+)*\w*)", line, re.IGNORECASE)
+                            m3 = re.search(r"\[sys\]\s+(?:game\s+)?version[:\s]+([1-9]\.[0-9]+(?:\.[0-9]+)*\w*)", line, re.IGNORECASE)
                             if m3:
                                 return m3.group(1).strip()
+                            m4 = re.search(r"\[ufs\]\s+Loaded pack set version\s+([1-9]\.[0-9]+(?:\.[0-9]+)*\w*)", line, re.IGNORECASE)
+                            if m4:
+                                return m4.group(1).strip()
                 except Exception as e:
                     print(f"[GameScanner] Error reading version from {log_file}: {e}")
         return None
@@ -297,7 +307,13 @@ class GameScanner:
             if user_path:
                 mod_path = user_path / "mod"
 
-        is_installed = bool(install_path and install_path.exists())
+        # Check if actual game binaries or archives exist (avoid false positive on empty folders)
+        is_installed = False
+        if install_path and install_path.exists():
+            is_installed = any(
+                (install_path / sub).exists()
+                for sub in ("bin", "base.scs", "def.scs", "core.scs")
+            )
 
         # Collect candidate directories for log searching
         candidate_user_dirs: List[Path] = []
@@ -322,13 +338,13 @@ class GameScanner:
         # Tier 1: User override in settings
         detected_version = game_cfg.get("game_version_override", "").strip()
 
-        # Tier 2: Directly inspect game executable binaries (PE resource or ELF strings)
-        if not detected_version and install_path:
-            detected_version = cls.detect_version_from_binaries(install_path, game_type) or ""
-
-        # Tier 3: Scan game.log.txt across all candidate locations
+        # Tier 2: Scan game.log.txt across candidate locations (most accurate, includes live build & revision)
         if not detected_version:
             detected_version = cls.detect_version_from_logs(candidate_user_dirs) or ""
+
+        # Tier 3: Directly inspect game executable binaries (fallback if game was never run yet)
+        if not detected_version and install_path:
+            detected_version = cls.detect_version_from_binaries(install_path, game_type) or ""
 
         return TruckGame(
             game_type=game_type,
