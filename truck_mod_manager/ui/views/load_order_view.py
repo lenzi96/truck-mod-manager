@@ -4,7 +4,7 @@ Manages priority ordering (1 = highest), SCS community auto-sorting, and conflic
 """
 from pathlib import Path
 from typing import List, Optional
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import Qt, QSize, pyqtSignal
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
@@ -18,6 +18,7 @@ from truck_mod_manager.core.models import ConflictFile, ModCategory, ScsMod, Tru
 from truck_mod_manager.ui.dialogs.conflict_dialog import ConflictDialog
 from truck_mod_manager.ui.dialogs.mod_detail_dialog import ModDetailDialog
 from truck_mod_manager.ui.style import CATEGORY_STYLES, get_category_badge_style
+from truck_mod_manager.ui.widgets.elided_label import ElidedLabel
 
 
 class LoadOrderItemWidget(QFrame):
@@ -27,67 +28,79 @@ class LoadOrderItemWidget(QFrame):
         super().__init__(parent)
         self.mod = mod
         self.setObjectName("cardFrame")
+        self.setMinimumHeight(70)
         self.conflict_count = conflict_count
         self.game_version = game_version
         self._setup_ui()
 
     def _setup_ui(self):
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(10, 6, 10, 6)
-        layout.setSpacing(12)
+        layout.setContentsMargins(14, 8, 14, 8)
+        layout.setSpacing(14)
 
         # Priority badge (#1, #2, ...)
         prio_lbl = QLabel(f"#{self.mod.priority}")
-        prio_lbl.setFixedWidth(42)
+        prio_lbl.setFixedSize(48, 34)
         prio_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         prio_lbl.setStyleSheet(
             "background-color: #2563eb; color: #ffffff; border-radius: 4px; "
             "font-weight: bold; font-size: 13px; padding: 4px;"
         )
-        layout.addWidget(prio_lbl)
+        layout.addWidget(prio_lbl, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         # Small thumbnail
         icon_lbl = QLabel()
-        icon_lbl.setFixedSize(50, 30)
+        icon_lbl.setFixedSize(56, 38)
         icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        icon_lbl.setStyleSheet("background-color: #0f172a; border-radius: 3px; border: 1px solid #334155;")
+        icon_lbl.setStyleSheet("background-color: #0f172a; border-radius: 4px; border: 1px solid #334155; font-size: 16px;")
         if self.mod.icon_path and Path(self.mod.icon_path).exists():
             pix = QPixmap(self.mod.icon_path)
             if not pix.isNull():
-                icon_lbl.setPixmap(pix.scaled(50, 30, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+                icon_lbl.setPixmap(pix.scaled(56, 38, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
             else:
                 icon_lbl.setText("🚛")
         else:
             icon_lbl.setText("🚛")
-        layout.addWidget(icon_lbl)
+        layout.addWidget(icon_lbl, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         # Title & filename
         info_col = QVBoxLayout()
-        info_col.setSpacing(2)
+        info_col.setSpacing(4)
+        info_col.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
-        title_lbl = QLabel(self.mod.display_name)
-        title_lbl.setStyleSheet("font-weight: bold; font-size: 13px; color: #f8fafc;")
+        title_lbl = ElidedLabel(self.mod.display_name)
+        title_lbl.setStyleSheet("font-weight: bold; font-size: 14px; color: #f8fafc;")
         info_col.addWidget(title_lbl)
 
-        sub_lbl = QLabel(f"{self.mod.file_name} • von {self.mod.author}")
-        sub_lbl.setStyleSheet("color: #94a3b8; font-size: 11px;")
+        sub_parts = []
+        if self.mod.author and self.mod.author.lower() != "unknown":
+            sub_parts.append(f"von {self.mod.author}")
+        sub_parts.append(self.mod.file_name)
+
+        sub_lbl = ElidedLabel("  •  ".join(sub_parts))
+        sub_lbl.setStyleSheet("color: #94a3b8; font-size: 12px;")
         info_col.addWidget(sub_lbl)
         layout.addLayout(info_col, stretch=1)
+
+        # Badges column
+        badges_col = QHBoxLayout()
+        badges_col.setSpacing(6)
+        badges_col.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
         # Compatibility Badge if incompatible
         is_compat, compat_msg = self.mod.check_compatibility(self.game_version)
         if is_compat is False:
             compat_badge = QLabel("❌ Inkompatibel")
-            compat_badge.setStyleSheet("background-color: #7f1d1d; color: #fca5a5; padding: 3px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;")
+            compat_badge.setStyleSheet("background-color: #7f1d1d; color: #fca5a5; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;")
             compat_badge.setToolTip(compat_msg)
-            layout.addWidget(compat_badge)
+            badges_col.addWidget(compat_badge)
 
         # Category Badge
         cat = self.mod.primary_category
         cat_info = CATEGORY_STYLES.get(cat, CATEGORY_STYLES[ModCategory.OTHER])
         cat_badge = QLabel(cat_info["label"])
         cat_badge.setStyleSheet(get_category_badge_style(cat))
-        layout.addWidget(cat_badge)
+        badges_col.addWidget(cat_badge)
 
         # Conflict Badge (if any)
         if self.conflict_count > 0:
@@ -97,7 +110,9 @@ class LoadOrderItemWidget(QFrame):
                 "border-radius: 4px; font-size: 11px; font-weight: bold;"
             )
             conf_badge.setToolTip("Diese Mod enthält Dateien, die auch in anderen aktiven Mods vorkommen.")
-            layout.addWidget(conf_badge)
+            badges_col.addWidget(conf_badge)
+
+        layout.addLayout(badges_col)
 
 
 class LoadOrderView(QWidget):
@@ -154,6 +169,9 @@ class LoadOrderView(QWidget):
         content_layout.setSpacing(10)
 
         self.list_widget = QListWidget()
+        self.list_widget.setSpacing(6)
+        self.list_widget.setVerticalScrollMode(QListWidget.ScrollMode.ScrollPerPixel)
+        self.list_widget.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.list_widget.setDragDropMode(QListWidget.DragDropMode.InternalMove)
         self.list_widget.setDefaultDropAction(Qt.DropAction.MoveAction)
         self.list_widget.model().rowsMoved.connect(self._on_rows_moved)
@@ -229,7 +247,7 @@ class LoadOrderView(QWidget):
         for mod in self.active_mods:
             item = QListWidgetItem(self.list_widget)
             item_widget = LoadOrderItemWidget(mod, conflict_counts.get(mod.display_name, 0), game_version=game_ver)
-            item.setSizeHint(item_widget.sizeHint())
+            item.setSizeHint(QSize(0, 76))
             self.list_widget.addItem(item)
             self.list_widget.setItemWidget(item, item_widget)
 

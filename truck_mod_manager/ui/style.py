@@ -27,11 +27,12 @@ QFrame#cardFrame {
     background-color: #1e293b;
     border: 1px solid #334155;
     border-radius: 8px;
-    padding: 8px;
+    padding: 0px;
 }
 
 QFrame#cardFrame:hover {
     border: 1px solid #475569;
+    background-color: #243248;
 }
 
 /* Navigation Tabs */
@@ -184,18 +185,17 @@ QListWidget, QTableWidget, QTreeWidget {
 }
 
 QListWidget::item {
-    padding: 6px 8px;
-    border-radius: 4px;
-    margin-bottom: 2px;
+    padding: 0px;
+    border: none;
+    background: transparent;
 }
 
 QListWidget::item:hover {
-    background-color: #1e293b;
+    background-color: transparent;
 }
 
 QListWidget::item:selected {
-    background-color: #1e3a8a;
-    color: #ffffff;
+    background-color: transparent;
 }
 
 QTableWidget::item {

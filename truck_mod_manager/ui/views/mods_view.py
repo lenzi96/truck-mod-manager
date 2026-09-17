@@ -6,7 +6,7 @@ import os
 import subprocess
 from pathlib import Path
 from typing import Callable, List, Optional
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import Qt, QSize, pyqtSignal
 from PyQt6.QtGui import QPixmap, QDragEnterEvent, QDropEvent
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
@@ -18,6 +18,7 @@ from truck_mod_manager.core.deployer import ModDeployer
 from truck_mod_manager.core.models import ModCategory, ScsMod, TruckGame
 from truck_mod_manager.ui.dialogs.mod_detail_dialog import ModDetailDialog
 from truck_mod_manager.ui.style import CATEGORY_STYLES, get_category_badge_style
+from truck_mod_manager.ui.widgets.elided_label import ElidedLabel
 
 
 class ModCardWidget(QFrame):
@@ -30,74 +31,85 @@ class ModCardWidget(QFrame):
         self.mod = mod
         self.game_version = game_version
         self.setObjectName("cardFrame")
+        self.setMinimumHeight(76)
         self._setup_ui()
 
     def _setup_ui(self):
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(10, 8, 10, 8)
-        layout.setSpacing(12)
+        layout.setContentsMargins(14, 8, 14, 8)
+        layout.setSpacing(14)
 
         # Toggle Active Button / Indicator
         self.toggle_btn = QPushButton("Aktiv" if self.mod.is_enabled else "Inaktiv")
         self.toggle_btn.setCheckable(True)
         self.toggle_btn.setChecked(self.mod.is_enabled)
+        self.toggle_btn.setFixedSize(84, 34)
         self._update_toggle_btn_style()
         self.toggle_btn.clicked.connect(self._on_toggled)
-        layout.addWidget(self.toggle_btn)
+        layout.addWidget(self.toggle_btn, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         # Mod Icon Thumbnail
         icon_lbl = QLabel()
-        icon_lbl.setFixedSize(64, 38)
+        icon_lbl.setFixedSize(64, 42)
         icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        icon_lbl.setStyleSheet("background-color: #0f172a; border-radius: 4px; border: 1px solid #334155;")
+        icon_lbl.setStyleSheet("background-color: #0f172a; border-radius: 4px; border: 1px solid #334155; font-size: 18px;")
 
         if self.mod.icon_path and Path(self.mod.icon_path).exists():
             pix = QPixmap(self.mod.icon_path)
             if not pix.isNull():
-                icon_lbl.setPixmap(pix.scaled(64, 38, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+                icon_lbl.setPixmap(pix.scaled(64, 42, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
             else:
                 icon_lbl.setText("🚛")
         else:
             icon_lbl.setText("🚛")
-        layout.addWidget(icon_lbl)
+        layout.addWidget(icon_lbl, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         # Mod Details Column
         info_col = QVBoxLayout()
-        info_col.setSpacing(2)
+        info_col.setSpacing(4)
+        info_col.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
         title_row = QHBoxLayout()
-        title_lbl = QLabel(self.mod.display_name)
-        title_lbl.setStyleSheet("font-weight: bold; font-size: 13px; color: #f8fafc;")
-        title_row.addWidget(title_lbl)
+        title_row.setSpacing(8)
+        title_lbl = ElidedLabel(self.mod.display_name)
+        title_lbl.setStyleSheet("font-weight: bold; font-size: 14px; color: #f8fafc;")
+        title_row.addWidget(title_lbl, stretch=1)
 
         if self.mod.priority > 0:
             pri_lbl = QLabel(f"Prio #{self.mod.priority}")
-            pri_lbl.setStyleSheet("background-color: #2563eb; color: #ffffff; padding: 1px 6px; border-radius: 3px; font-size: 10px; font-weight: bold;")
+            pri_lbl.setStyleSheet("background-color: #2563eb; color: #ffffff; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;")
             title_row.addWidget(pri_lbl)
 
-        title_row.addStretch()
         info_col.addLayout(title_row)
 
-        sub_lbl = QLabel(f"v{self.mod.package_version} • von {self.mod.author} • {self.mod.file_name}")
-        sub_lbl.setStyleSheet("color: #94a3b8; font-size: 11px;")
+        sub_parts = []
+        if self.mod.package_version:
+            sub_parts.append(f"v{self.mod.package_version}")
+        if self.mod.author and self.mod.author.lower() != "unknown":
+            sub_parts.append(f"von {self.mod.author}")
+        sub_parts.append(self.mod.file_name)
+
+        sub_lbl = ElidedLabel("  •  ".join(sub_parts))
+        sub_lbl.setStyleSheet("color: #94a3b8; font-size: 12px;")
         info_col.addWidget(sub_lbl)
 
         layout.addLayout(info_col, stretch=1)
 
         # Badges (Categories & Compatibility)
         badges_col = QHBoxLayout()
-        badges_col.setSpacing(4)
+        badges_col.setSpacing(6)
+        badges_col.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
         # Compatibility Badge
         is_compat, compat_msg = self.mod.check_compatibility(self.game_version)
         if is_compat is False:
             compat_badge = QLabel("❌ Inkompatibel")
-            compat_badge.setStyleSheet("background-color: #7f1d1d; color: #fca5a5; padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: bold;")
+            compat_badge.setStyleSheet("background-color: #7f1d1d; color: #fca5a5; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;")
             compat_badge.setToolTip(compat_msg)
             badges_col.addWidget(compat_badge)
         elif is_compat is True and self.mod.compatible_versions:
             compat_badge = QLabel("✔ Kompatibel")
-            compat_badge.setStyleSheet("background-color: #065f46; color: #6ee7b7; padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: bold;")
+            compat_badge.setStyleSheet("background-color: #065f46; color: #6ee7b7; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;")
             compat_badge.setToolTip(compat_msg)
             badges_col.addWidget(compat_badge)
 
@@ -109,7 +121,7 @@ class ModCardWidget(QFrame):
 
         if self.mod.mp_mod_optional:
             mp_lbl = QLabel("Convoy")
-            mp_lbl.setStyleSheet("background-color: #065f46; color: #6ee7b7; padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: bold;")
+            mp_lbl.setStyleSheet("background-color: #065f46; color: #6ee7b7; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;")
             badges_col.addWidget(mp_lbl)
 
         layout.addLayout(badges_col)
@@ -118,9 +130,9 @@ class ModCardWidget(QFrame):
         del_btn = QPushButton("🗑️")
         del_btn.setObjectName("dangerBtn")
         del_btn.setToolTip(f"'{self.mod.display_name}' endgültig löschen")
-        del_btn.setFixedSize(30, 30)
+        del_btn.setFixedSize(34, 34)
         del_btn.clicked.connect(lambda: self.delete_requested.emit(self.mod))
-        layout.addWidget(del_btn)
+        layout.addWidget(del_btn, alignment=Qt.AlignmentFlag.AlignVCenter)
 
     def _update_toggle_btn_style(self):
         if self.mod.is_enabled:
@@ -240,6 +252,9 @@ class ModsView(QWidget):
 
         # Mod List Widget
         self.mod_list = QListWidget()
+        self.mod_list.setSpacing(6)
+        self.mod_list.setVerticalScrollMode(QListWidget.ScrollMode.ScrollPerPixel)
+        self.mod_list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.mod_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.mod_list.customContextMenuRequested.connect(self._show_context_menu)
         self.mod_list.itemDoubleClicked.connect(self._on_item_double_clicked)
@@ -301,7 +316,7 @@ class ModsView(QWidget):
             card = ModCardWidget(mod, game_version=game_ver)
             card.toggled.connect(self._on_mod_toggled)
             card.delete_requested.connect(self._delete_mod)
-            item.setSizeHint(card.sizeHint())
+            item.setSizeHint(QSize(0, 82))
             self.mod_list.addItem(item)
             self.mod_list.setItemWidget(item, card)
 

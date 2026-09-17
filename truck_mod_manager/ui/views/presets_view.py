@@ -65,6 +65,29 @@ class PresetsView(QWidget):
         left_layout.setSpacing(8)
 
         self.preset_list = QListWidget()
+        self.preset_list.setSpacing(4)
+        self.preset_list.setStyleSheet("""
+            QListWidget::item {
+                padding: 10px 14px;
+                border-radius: 6px;
+                margin-bottom: 3px;
+                background-color: #1e293b;
+                border: 1px solid #334155;
+                color: #f8fafc;
+                font-size: 13px;
+                font-weight: 500;
+            }
+            QListWidget::item:hover {
+                background-color: #334155;
+                border-color: #475569;
+            }
+            QListWidget::item:selected {
+                background-color: #2563eb;
+                border-color: #3b82f6;
+                color: #ffffff;
+                font-weight: bold;
+            }
+        """)
         self.preset_list.itemClicked.connect(self._on_preset_selected)
         left_layout.addWidget(self.preset_list)
 

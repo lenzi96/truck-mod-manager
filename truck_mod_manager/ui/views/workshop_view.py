@@ -6,7 +6,7 @@ import subprocess
 import webbrowser
 from pathlib import Path
 from typing import List, Optional
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
@@ -15,6 +15,7 @@ from PyQt6.QtWidgets import (
 
 from truck_mod_manager.core.models import ScsMod, TruckGame
 from truck_mod_manager.core.workshop_scanner import WorkshopScanner
+from truck_mod_manager.ui.widgets.elided_label import ElidedLabel
 
 
 class WorkshopItemWidget(QFrame):
@@ -22,45 +23,48 @@ class WorkshopItemWidget(QFrame):
         super().__init__(parent)
         self.mod = mod
         self.setObjectName("cardFrame")
+        self.setMinimumHeight(68)
         self._setup_ui()
 
     def _setup_ui(self):
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(10, 8, 10, 8)
-        layout.setSpacing(12)
+        layout.setContentsMargins(14, 8, 14, 8)
+        layout.setSpacing(14)
 
         # Icon
         icon_lbl = QLabel()
-        icon_lbl.setFixedSize(64, 38)
+        icon_lbl.setFixedSize(56, 38)
         icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        icon_lbl.setStyleSheet("background-color: #0f172a; border-radius: 4px; border: 1px solid #334155;")
+        icon_lbl.setStyleSheet("background-color: #0f172a; border-radius: 4px; border: 1px solid #334155; font-size: 16px;")
         if self.mod.icon_path and Path(self.mod.icon_path).exists():
             pix = QPixmap(self.mod.icon_path)
             if not pix.isNull():
-                icon_lbl.setPixmap(pix.scaled(64, 38, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+                icon_lbl.setPixmap(pix.scaled(56, 38, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
             else:
                 icon_lbl.setText("⚙️")
         else:
             icon_lbl.setText("⚙️")
-        layout.addWidget(icon_lbl)
+        layout.addWidget(icon_lbl, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         # Info
         info_col = QVBoxLayout()
-        info_col.setSpacing(2)
+        info_col.setSpacing(4)
+        info_col.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
-        title_lbl = QLabel(self.mod.display_name)
-        title_lbl.setStyleSheet("font-weight: bold; font-size: 13px; color: #f8fafc;")
+        title_lbl = ElidedLabel(self.mod.display_name)
+        title_lbl.setStyleSheet("font-weight: bold; font-size: 14px; color: #f8fafc;")
         info_col.addWidget(title_lbl)
 
         size_mb = self.mod.file_size / (1024 * 1024)
-        sub_lbl = QLabel(f"Workshop ID: {self.mod.workshop_id or 'N/A'} • {size_mb:.1f} MB")
-        sub_lbl.setStyleSheet("color: #94a3b8; font-size: 11px;")
+        sub_lbl = ElidedLabel(f"Workshop ID: {self.mod.workshop_id or 'N/A'}  •  {size_mb:.1f} MB  •  {self.mod.file_name}")
+        sub_lbl.setStyleSheet("color: #94a3b8; font-size: 12px;")
         info_col.addWidget(sub_lbl)
         layout.addLayout(info_col, stretch=1)
 
         # Actions
         btn_layout = QHBoxLayout()
         btn_layout.setSpacing(6)
+        btn_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
         if self.mod.workshop_id:
             link_btn = QPushButton("🌐 Im Web öffnen")
@@ -112,6 +116,9 @@ class WorkshopView(QWidget):
 
         # List
         self.list_widget = QListWidget()
+        self.list_widget.setSpacing(6)
+        self.list_widget.setVerticalScrollMode(QListWidget.ScrollMode.ScrollPerPixel)
+        self.list_widget.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         layout.addWidget(self.list_widget)
 
     def set_game(self, game: TruckGame):
@@ -127,7 +134,7 @@ class WorkshopView(QWidget):
         for mod in self.mods:
             item = QListWidgetItem(self.list_widget)
             widget = WorkshopItemWidget(mod)
-            item.setSizeHint(widget.sizeHint())
+            item.setSizeHint(QSize(0, 74))
             self.list_widget.addItem(item)
             self.list_widget.setItemWidget(item, widget)
 
