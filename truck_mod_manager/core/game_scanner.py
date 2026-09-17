@@ -117,75 +117,6 @@ class GameScanner:
 
         return sorted(list(libs))
 
-    @classmethod
-    def find_game(cls, game_type: GameType) -> TruckGame:
-        """Locates game install dir, user data directory, and mod folder."""
-        info = cls.APP_INFO[game_type]
-        game_cfg = config.get_game_config(game_type.value)
-
-        # 1. Check custom overrides first
-        custom_install = game_cfg.get("custom_install_dir", "").strip()
-        custom_user = game_cfg.get("custom_user_dir", "").strip()
-        custom_mod = game_cfg.get("custom_mod_dir", "").strip()
-        is_proton_pref = game_cfg.get("is_proton", False)
-
-        install_path: Optional[Path] = Path(custom_install) if custom_install else None
-        user_path: Optional[Path] = Path(custom_user) if custom_user else None
-        mod_path: Optional[Path] = Path(custom_mod) if custom_mod else None
-        proton_pfx: Optional[Path] = None
-
-        # 2. If not manually set, scan Steam libraries
-        libraries = cls.get_steam_libraries()
-        appid = info["appid"]
-
-        if not install_path or not install_path.exists():
-            for lib in libraries:
-                steamapps = lib / "steamapps"
-                # Check appmanifest
-                acf = steamapps / f"appmanifest_{appid}.acf"
-                if acf.exists():
-                    try:
-                        acf_data = cls.parse_vdf(acf.read_text(encoding="utf-8", errors="ignore"))
-                        app_state = acf_data.get("AppState", acf_data)
-                        installdir = app_state.get("installdir", info["dir_name"])
-                        candidate = steamapps / "common" / installdir
-                        if candidate.exists():
-                            install_path = candidate
-                            break
-                    except Exception:
-                        pass
-
-                # Fallback: check common directly
-                candidate2 = steamapps / "common" / info["dir_name"]
-                if candidate2.exists():
-                    install_path = candidate2
-                    break
-
-        # Check Proton prefix
-        for lib in libraries:
-            pfx = lib / "steamapps" / "compatdata" / appid / "pfx"
-            if pfx.exists():
-                proton_pfx = pfx
-                break
-
-        # 3. Detect User Directory (~/.local/share/... for native, or Wine pfx Documents)
-        if not user_path or not user_path.exists():
-            native_user = Path(os.path.expanduser(f"~/.local/share/{info['dir_name']}"))
-            proton_user = None
-            if proton_pfx:
-                proton_user = proton_pfx / "drive_c" / "users" / "steamuser" / "Documents" / info["dir_name"]
-
-            if is_proton_pref and proton_user and proton_user.exists():
-                user_path = proton_user
-            elif native_user.exists():
-                user_path = native_user
-            elif proton_user and proton_user.exists():
-                user_path = proton_user
-                is_proton_pref = True
-            else:
-                # Default to native path even if not created yet
-                user_path = native_user
-
     @staticmethod
     def _extract_pe_version(exe_path: Path) -> Optional[str]:
         """Extracts FileVersion/ProductVersion from a Windows PE executable header or string table."""
@@ -291,6 +222,75 @@ class GameScanner:
                 except Exception as e:
                     print(f"[GameScanner] Error reading version from {log_file}: {e}")
         return None
+
+    @classmethod
+    def find_game(cls, game_type: GameType) -> TruckGame:
+        """Locates game install dir, user data directory, and mod folder."""
+        info = cls.APP_INFO[game_type]
+        game_cfg = config.get_game_config(game_type.value)
+
+        # 1. Check custom overrides first
+        custom_install = game_cfg.get("custom_install_dir", "").strip()
+        custom_user = game_cfg.get("custom_user_dir", "").strip()
+        custom_mod = game_cfg.get("custom_mod_dir", "").strip()
+        is_proton_pref = game_cfg.get("is_proton", False)
+
+        install_path: Optional[Path] = Path(custom_install) if custom_install else None
+        user_path: Optional[Path] = Path(custom_user) if custom_user else None
+        mod_path: Optional[Path] = Path(custom_mod) if custom_mod else None
+        proton_pfx: Optional[Path] = None
+
+        # 2. If not manually set, scan Steam libraries
+        libraries = cls.get_steam_libraries()
+        appid = info["appid"]
+
+        if not install_path or not install_path.exists():
+            for lib in libraries:
+                steamapps = lib / "steamapps"
+                # Check appmanifest
+                acf = steamapps / f"appmanifest_{appid}.acf"
+                if acf.exists():
+                    try:
+                        acf_data = cls.parse_vdf(acf.read_text(encoding="utf-8", errors="ignore"))
+                        app_state = acf_data.get("AppState", acf_data)
+                        installdir = app_state.get("installdir", info["dir_name"])
+                        candidate = steamapps / "common" / installdir
+                        if candidate.exists():
+                            install_path = candidate
+                            break
+                    except Exception:
+                        pass
+
+                # Fallback: check common directly
+                candidate2 = steamapps / "common" / info["dir_name"]
+                if candidate2.exists():
+                    install_path = candidate2
+                    break
+
+        # Check Proton prefix
+        for lib in libraries:
+            pfx = lib / "steamapps" / "compatdata" / appid / "pfx"
+            if pfx.exists():
+                proton_pfx = pfx
+                break
+
+        # 3. Detect User Directory (~/.local/share/... for native, or Wine pfx Documents)
+        if not user_path or not user_path.exists():
+            native_user = Path(os.path.expanduser(f"~/.local/share/{info['dir_name']}"))
+            proton_user = None
+            if proton_pfx:
+                proton_user = proton_pfx / "drive_c" / "users" / "steamuser" / "Documents" / info["dir_name"]
+
+            if is_proton_pref and proton_user and proton_user.exists():
+                user_path = proton_user
+            elif native_user.exists():
+                user_path = native_user
+            elif proton_user and proton_user.exists():
+                user_path = proton_user
+                is_proton_pref = True
+            else:
+                # Default to native path even if not created yet
+                user_path = native_user
 
         # 4. Mod directory
         if not mod_path or not mod_path.exists():

@@ -208,7 +208,11 @@ class MainWindow(QMainWindow):
             self.ats_btn.setStyleSheet("background-color: #7f1d1d; color: #ffffff; font-weight: bold; border-color: #ef4444;")
             self.ets2_btn.setStyleSheet("")
 
-        self.current_game = self.games.get(game_type) or GameScanner.find_game(game_type)
+        found = self.games.get(game_type) or GameScanner.find_game(game_type)
+        if not found:
+            info = GameScanner.APP_INFO.get(game_type, {"name": game_type.name, "appid": "", "dir_name": ""})
+            found = TruckGame(game_type=game_type, name=info["name"], steam_appid=info["appid"])
+        self.current_game = found
         self.games[game_type] = self.current_game
 
         # Load mods for this game

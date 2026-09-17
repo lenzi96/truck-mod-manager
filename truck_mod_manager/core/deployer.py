@@ -30,6 +30,8 @@ class ModDeployer:
         Discovers all mods available for this game:
         Checks both the centralized staging directory and the game's actual mod/ directory.
         """
+        if not game:
+            return []
         mods: Dict[str, ScsMod] = {}
         staging_dir = cls.get_staging_dir(game.game_type)
         use_staging = config.get("zero_pollution_staging", True)

@@ -85,6 +85,23 @@ class TestGameScannerVersionDetection(unittest.TestCase):
         ver = GameScanner.detect_version_from_binaries(self.root, GameType.ETS2)
         self.assertEqual(ver, "1.51.0")
 
+    def test_find_game_returns_valid_truckgame(self):
+        game = GameScanner.find_game(GameType.ETS2)
+        self.assertIsNotNone(game)
+        self.assertEqual(game.game_type, GameType.ETS2)
+        self.assertEqual(game.name, "Euro Truck Simulator 2")
+
+        game_ats = GameScanner.find_game(GameType.ATS)
+        self.assertIsNotNone(game_ats)
+        self.assertEqual(game_ats.game_type, GameType.ATS)
+        self.assertEqual(game_ats.name, "American Truck Simulator")
+
+    def test_deployer_load_all_mods_none_safe(self):
+        from truck_mod_manager.core.deployer import ModDeployer
+        mods = ModDeployer.load_all_mods(None)
+        self.assertEqual(mods, [])
+
 
 if __name__ == "__main__":
     unittest.main()
+
