@@ -27,19 +27,20 @@ class WorkshopItemWidget(QFrame):
         self._setup_ui()
 
     def _setup_ui(self):
+        self.setMinimumHeight(76)
         layout = QHBoxLayout(self)
         layout.setContentsMargins(14, 8, 14, 8)
         layout.setSpacing(14)
 
         # Icon
         icon_lbl = QLabel()
-        icon_lbl.setFixedSize(56, 38)
+        icon_lbl.setFixedSize(86, 54)
         icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        icon_lbl.setStyleSheet("background-color: #0f172a; border-radius: 4px; border: 1px solid #334155; font-size: 16px;")
+        icon_lbl.setStyleSheet("background-color: #0b0f19; border-radius: 6px; border: 1px solid #243350; font-size: 18px;")
         if self.mod.icon_path and Path(self.mod.icon_path).exists():
             pix = QPixmap(self.mod.icon_path)
             if not pix.isNull():
-                icon_lbl.setPixmap(pix.scaled(56, 38, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+                icon_lbl.setPixmap(pix.scaled(86, 54, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
             else:
                 icon_lbl.setText("⚙️")
         else:
@@ -67,7 +68,13 @@ class WorkshopItemWidget(QFrame):
         btn_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
         if self.mod.workshop_id:
-            link_btn = QPushButton("🌐 Im Web öffnen")
+            link_btn = QPushButton("Im Web öffnen ↗")
+            link_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            link_btn.setStyleSheet(
+                "QPushButton { background-color: #0c2136; color: #38bdf8; border: 1px solid #0284c7; "
+                "border-radius: 6px; font-weight: 500; padding: 6px 12px; } "
+                "QPushButton:hover { background-color: #0284c7; color: #ffffff; }"
+            )
             link_btn.clicked.connect(self._open_web)
             btn_layout.addWidget(link_btn)
 
@@ -93,7 +100,7 @@ class WorkshopView(QWidget):
 
         # Header
         header = QFrame()
-        header.setObjectName("headerFrame")
+        header.setObjectName("toolbarCard")
         h_layout = QHBoxLayout(header)
         h_layout.setContentsMargins(10, 8, 10, 8)
 
@@ -117,6 +124,7 @@ class WorkshopView(QWidget):
         # List
         self.list_widget = QListWidget()
         self.list_widget.setSpacing(6)
+        self.list_widget.setResizeMode(QListWidget.ResizeMode.Adjust)
         self.list_widget.setVerticalScrollMode(QListWidget.ScrollMode.ScrollPerPixel)
         self.list_widget.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         layout.addWidget(self.list_widget)
@@ -134,7 +142,7 @@ class WorkshopView(QWidget):
         for mod in self.mods:
             item = QListWidgetItem(self.list_widget)
             widget = WorkshopItemWidget(mod)
-            item.setSizeHint(QSize(0, 74))
+            item.setSizeHint(QSize(0, 86))
             self.list_widget.addItem(item)
             self.list_widget.setItemWidget(item, widget)
 

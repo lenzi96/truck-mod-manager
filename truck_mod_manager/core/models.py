@@ -117,6 +117,7 @@ class ScsMod:
     compatible_versions: List[str] = field(default_factory=list)
     is_workshop: bool = False
     workshop_id: Optional[str] = None
+    is_missing: bool = False
 
     @property
     def primary_category(self) -> ModCategory:
@@ -142,6 +143,11 @@ class ScsMod:
 
         for pattern in self.compatible_versions:
             pat = pattern.strip()
+            # Fast-path for wildcards: e.g. '1.61.*' matches '1.61' or '1.61.1'
+            pat_prefix = pat.rstrip(".*").rstrip("*")
+            if pat_prefix and (clean_game_ver == pat_prefix or clean_game_ver.startswith(pat_prefix + ".")):
+                return True, f"Kompatibel mit v{game_version} ({pat})"
+
             # 1. Exact or wildcard match on original version e.g. 1.50.* matches 1.50.2.3s
             if fnmatch.fnmatch(game_version, pat):
                 return True, f"Kompatibel mit v{game_version} ({pat})"
@@ -159,11 +165,21 @@ class ScsMod:
         return False, f"Inkompatibel! Erfordert {', '.join(self.compatible_versions)}, installiert ist v{game_version}"
 
 
+class ConflictSeverity(str, Enum):
+    CRITICAL = "critical"  # Red: Game data, economy, physics, duplicate map sectors
+    WARNING = "warning"    # Yellow: Functional gameplay, accessories, sounds, UI
+    INFO = "info"          # Blue: Assets, textures, intentional road connections, multi-pack parts
+
+
 @dataclass
 class ConflictFile:
     relative_path: str
     mod_files: List[str] = field(default_factory=list)     # File names of mods containing this file
     winning_mod: Optional[str] = None                      # Mod with highest priority
+    severity: ConflictSeverity = ConflictSeverity.WARNING
+    category_label: str = "Sonstiges"                      # e.g. "Spieldaten", "Kartensektor", "Physik", "Sound", "Textur"
+    impact: str = ""                                       # Description of potential in-game impact
+    is_intended_override: bool = False                     # True if Road Connection or same-pack override
 
 
 @dataclass
@@ -182,3 +198,14 @@ class LogIssue:
     message: str
     line_number: int
     suggestion: str = ""
+
+
+@dataclass
+class GameProfile:
+    id: str                                # Directory name (e.g. hex "50726F6D6F6473") or "default"
+    name: str                              # Human-readable profile name (e.g. "Promods")
+    path: Optional[Path] = None            # Directory path
+    is_steam_cloud: bool = False           # Whether stored in steam_profiles
+    game_type: GameType = GameType.ETS2
+    last_modified: float = 0.0
+

@@ -141,16 +141,11 @@ class GameScanner:
                         f_build = f_ls >> 16
                         f_rev = f_ls & 0xFFFF
                         if 1 <= f_major <= 10:
-                            if f_rev > 0:
-                                return f"{f_major}.{f_minor}.{f_build}.{f_rev}"
-                            elif f_build > 0:
-                                return f"{f_major}.{f_minor}.{f_build}"
-                            else:
-                                return f"{f_major}.{f_minor}"
+                            return f"{f_major}.{f_minor}"
                 idx = pos + 4
 
             # Fallback regex search on binary bytes
-            m = re.search(rb"init ver\.?\s*([1-9]\.[0-9]+(?:\.[0-9]+)*[a-z]?)", data)
+            m = re.search(rb"init ver\.?\s*([1-9]\.[0-9]+)", data)
             if m:
                 return m.group(1).decode("ascii", errors="ignore").strip()
         except Exception as e:
@@ -165,15 +160,47 @@ class GameScanner:
         try:
             with open(bin_path, "rb") as f:
                 data = f.read(128 * 1024 * 1024)
-            m = re.search(rb"init ver\.?\s*([1-9]\.[0-9]+(?:\.[0-9]+)*[a-z]?)", data)
+            m = re.search(rb"init ver\.?\s*([1-9]\.[0-9]+)", data)
             if m:
                 return m.group(1).decode("ascii", errors="ignore").strip()
-            m2 = re.search(rb"(?:Euro Truck Simulator 2|American Truck Simulator)\s+v?([1-9]\.[0-9]+(?:\.[0-9]+)*[a-z]?)", data)
+            m2 = re.search(rb"(?:Euro Truck Simulator 2|American Truck Simulator)\s+v?([1-9]\.[0-9]+)", data)
             if m2:
                 return m2.group(1).decode("ascii", errors="ignore").strip()
         except Exception as e:
             print(f"[GameScanner] Error extracting ELF version from {bin_path}: {e}")
         return None
+
+    @classmethod
+    def get_binary_mtime(cls, install_path: Optional[Path], game_type: GameType) -> float:
+        """Returns the modification timestamp of the primary game binary."""
+        if not install_path or not install_path.exists():
+            return 0.0
+        is_ets2 = (game_type == GameType.ETS2)
+        candidates = [
+            install_path / "bin" / "win_x64" / ("eurotrucks2.exe" if is_ets2 else "amtrucks.exe"),
+            install_path / "bin" / "linux_x64" / ("eurotrucks2" if is_ets2 else "amtrucks"),
+            install_path / "bin" / "win_x86" / ("eurotrucks2.exe" if is_ets2 else "amtrucks.exe"),
+            install_path / "bin" / "linux_x86" / ("eurotrucks2" if is_ets2 else "amtrucks"),
+        ]
+        for exe in candidates:
+            if exe.is_file():
+                return exe.stat().st_mtime
+        return 0.0
+
+    @classmethod
+    def get_log_mtime(cls, candidate_dirs: List[Path]) -> float:
+        """Returns the modification timestamp of the newest log file."""
+        latest = 0.0
+        for cdir in candidate_dirs:
+            if not cdir or not cdir.exists():
+                continue
+            for log_name in ("game.log.txt", "game.log.bak.txt"):
+                log_file = cdir / log_name
+                if log_file.is_file():
+                    mt = log_file.stat().st_mtime
+                    if mt > latest:
+                        latest = mt
+        return latest
 
     @classmethod
     def detect_version_from_binaries(cls, install_path: Path, game_type: GameType) -> Optional[str]:
@@ -217,16 +244,16 @@ class GameScanner:
                         for idx, line in enumerate(f):
                             if idx > 1000:
                                 break
-                            m = re.search(r"init ver\.?\s*([1-9]\.[0-9]+(?:\.[0-9]+)*\w*)", line, re.IGNORECASE)
+                            m = re.search(r"init ver\.?\s*([1-9]\.[0-9]+)", line, re.IGNORECASE)
                             if m:
                                 return m.group(1).strip()
-                            m2 = re.search(r"(?:Euro Truck Simulator 2|American Truck Simulator)\s+init\s+ver\.?\s*([1-9]\.[0-9]+(?:\.[0-9]+)*\w*)", line, re.IGNORECASE)
+                            m2 = re.search(r"(?:Euro Truck Simulator 2|American Truck Simulator)\s+init\s+ver\.?\s*([1-9]\.[0-9]+)", line, re.IGNORECASE)
                             if m2:
                                 return m2.group(1).strip()
-                            m3 = re.search(r"\[sys\]\s+(?:game\s+)?version[:\s]+([1-9]\.[0-9]+(?:\.[0-9]+)*\w*)", line, re.IGNORECASE)
+                            m3 = re.search(r"\[sys\]\s+(?:game\s+)?version[:\s]+([1-9]\.[0-9]+)", line, re.IGNORECASE)
                             if m3:
                                 return m3.group(1).strip()
-                            m4 = re.search(r"\[ufs\]\s+Loaded pack set version\s+([1-9]\.[0-9]+(?:\.[0-9]+)*\w*)", line, re.IGNORECASE)
+                            m4 = re.search(r"\[ufs\]\s+Loaded pack set version\s+([1-9]\.[0-9]+)", line, re.IGNORECASE)
                             if m4:
                                 return m4.group(1).strip()
                 except Exception as e:
@@ -334,17 +361,27 @@ class GameScanner:
             if pfx_c.exists():
                 candidate_user_dirs.append(pfx_c / "drive_c" / "users" / "steamuser" / "Documents" / info["dir_name"])
 
-        # 5. Detect Game Version (Multi-Tier)
+        # 5. Detect Game Version (Multi-Tier with Timestamp-Aware Resolution)
         # Tier 1: User override in settings
         detected_version = game_cfg.get("game_version_override", "").strip()
 
-        # Tier 2: Scan game.log.txt across candidate locations (most accurate, includes live build & revision)
         if not detected_version:
-            detected_version = cls.detect_version_from_logs(candidate_user_dirs) or ""
+            bin_ver = cls.detect_version_from_binaries(install_path, game_type) if install_path else None
+            log_ver = cls.detect_version_from_logs(candidate_user_dirs)
 
-        # Tier 3: Directly inspect game executable binaries (fallback if game was never run yet)
-        if not detected_version and install_path:
-            detected_version = cls.detect_version_from_binaries(install_path, game_type) or ""
+            if bin_ver and log_ver:
+                bin_mtime = cls.get_binary_mtime(install_path, game_type)
+                log_mtime = cls.get_log_mtime(candidate_user_dirs)
+                # If the binary is newer than the log, Steam updated the game but it has not run yet.
+                # In that case, the binary reflects the currently installed game version!
+                if bin_mtime > log_mtime:
+                    detected_version = bin_ver
+                else:
+                    detected_version = log_ver
+            elif bin_ver:
+                detected_version = bin_ver
+            elif log_ver:
+                detected_version = log_ver
 
         return TruckGame(
             game_type=game_type,

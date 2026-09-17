@@ -32,7 +32,7 @@ class SettingsView(QWidget):
 
         # Header
         header = QFrame()
-        header.setObjectName("headerFrame")
+        header.setObjectName("toolbarCard")
         h_layout = QHBoxLayout(header)
         h_layout.setContentsMargins(10, 8, 10, 8)
         title = QLabel("⚙️ Einstellungen & Pfadkonfiguration")
@@ -40,7 +40,7 @@ class SettingsView(QWidget):
         h_layout.addWidget(title)
         h_layout.addStretch()
 
-        save_btn = QPushButton("💾 Einstellungen speichern")
+        save_btn = QPushButton("💾 Speichern")
         save_btn.setObjectName("primaryBtn")
         save_btn.clicked.connect(self._save_settings)
         h_layout.addWidget(save_btn)

@@ -31,7 +31,7 @@ class LogAnalyzerView(QWidget):
 
         # Diagnostic Banner Card
         self.banner_card = QFrame()
-        self.banner_card.setObjectName("headerFrame")
+        self.banner_card.setObjectName("toolbarCard")
         banner_layout = QHBoxLayout(self.banner_card)
         banner_layout.setContentsMargins(12, 10, 12, 10)
         banner_layout.setSpacing(16)
@@ -50,15 +50,15 @@ class LogAnalyzerView(QWidget):
 
         # Status Chips
         self.err_chip = QLabel("0 Fehler")
-        self.err_chip.setStyleSheet("background-color: #7f1d1d; color: #fca5a5; padding: 4px 10px; border-radius: 4px; font-weight: bold;")
+        self.err_chip.setStyleSheet("background-color: #3b1219; color: #fca5a5; border: 1px solid #7f1d1d; padding: 5px 12px; border-radius: 6px; font-weight: bold; font-size: 12px;")
         banner_layout.addWidget(self.err_chip)
 
         self.warn_chip = QLabel("0 Warnungen")
-        self.warn_chip.setStyleSheet("background-color: #78350f; color: #fde047; padding: 4px 10px; border-radius: 4px; font-weight: bold;")
+        self.warn_chip.setStyleSheet("background-color: #3d1c06; color: #fde047; border: 1px solid #d97706; padding: 5px 12px; border-radius: 6px; font-weight: bold; font-size: 12px;")
         banner_layout.addWidget(self.warn_chip)
 
         self.crash_chip = QLabel("Kein Absturz")
-        self.crash_chip.setStyleSheet("background-color: #064e3b; color: #6ee7b7; padding: 4px 10px; border-radius: 4px; font-weight: bold;")
+        self.crash_chip.setStyleSheet("background-color: #063726; color: #6ee7b7; border: 1px solid #059669; padding: 5px 12px; border-radius: 6px; font-weight: bold; font-size: 12px;")
         banner_layout.addWidget(self.crash_chip)
 
         refresh_btn = QPushButton("🔄 Neu analysieren")
@@ -83,8 +83,8 @@ class LogAnalyzerView(QWidget):
         self.level_filter.currentIndexChanged.connect(self._apply_filter)
         ctrl_bar.addWidget(self.level_filter)
 
-        copy_btn = QPushButton("📋 Log-Auszug kopieren (Forum / Discord)")
-        copy_btn.setToolTip("Kopiert die letzten 150 Zeilen bereinigt in die Zwischenablage")
+        copy_btn = QPushButton("📋 Log kopieren")
+        copy_btn.setToolTip("Kopiert die letzten 150 Zeilen bereinigt in die Zwischenablage (für Forum oder Discord)")
         copy_btn.clicked.connect(self._copy_log_snippet)
         ctrl_bar.addWidget(copy_btn)
 
@@ -134,10 +134,10 @@ class LogAnalyzerView(QWidget):
 
         if crashed:
             self.crash_chip.setText("💥 Absturz (Crash)!")
-            self.crash_chip.setStyleSheet("background-color: #7f1d1d; color: #fca5a5; padding: 4px 10px; border-radius: 4px; font-weight: bold;")
+            self.crash_chip.setStyleSheet("background-color: #3b1219; color: #fca5a5; border: 1px solid #7f1d1d; padding: 5px 12px; border-radius: 6px; font-weight: bold; font-size: 12px;")
         else:
             self.crash_chip.setText("✔ Normal beendet")
-            self.crash_chip.setStyleSheet("background-color: #064e3b; color: #6ee7b7; padding: 4px 10px; border-radius: 4px; font-weight: bold;")
+            self.crash_chip.setStyleSheet("background-color: #063726; color: #6ee7b7; border: 1px solid #059669; padding: 5px 12px; border-radius: 6px; font-weight: bold; font-size: 12px;")
 
         self.title_lbl.setText(f"game.log.txt Diagnose (Spielversion: {game_ver})")
         self._apply_filter()

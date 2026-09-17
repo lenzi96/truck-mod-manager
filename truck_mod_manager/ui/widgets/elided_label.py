@@ -30,6 +30,18 @@ class ElidedLabel(QLabel):
         super().resizeEvent(event)
         self._update_elided_text()
 
+    def minimumSizeHint(self):
+        hint = super().minimumSizeHint()
+        hint.setWidth(60)
+        return hint
+
+    def sizeHint(self):
+        hint = super().sizeHint()
+        if self._full_text:
+            metrics = self.fontMetrics()
+            hint.setWidth(min(metrics.horizontalAdvance(self._full_text), 450))
+        return hint
+
     def _update_elided_text(self):
         if not self._full_text:
             super().setText("")

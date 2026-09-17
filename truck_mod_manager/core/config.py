@@ -13,6 +13,7 @@ CONFIG_FILE = CONFIG_DIR / "config.json"
 CACHE_DIR = Path(os.path.expanduser("~/.cache/truck-mod-manager"))
 ICONS_CACHE_DIR = CACHE_DIR / "icons"
 PRESETS_DIR = Path(os.path.expanduser("~/.local/share/truck-mod-manager/presets"))
+PROFILES_DIR = Path(os.path.expanduser("~/.local/share/truck-mod-manager/profiles"))
 STAGING_DIR = Path(os.path.expanduser("~/.local/share/truck-mod-manager/mods"))
 
 
@@ -56,6 +57,8 @@ class ConfigManager:
         CONFIG_DIR.mkdir(parents=True, exist_ok=True)
         ICONS_CACHE_DIR.mkdir(parents=True, exist_ok=True)
         PRESETS_DIR.mkdir(parents=True, exist_ok=True)
+        (PROFILES_DIR / "ets2").mkdir(parents=True, exist_ok=True)
+        (PROFILES_DIR / "ats").mkdir(parents=True, exist_ok=True)
         (STAGING_DIR / "ets2").mkdir(parents=True, exist_ok=True)
         (STAGING_DIR / "ats").mkdir(parents=True, exist_ok=True)
 

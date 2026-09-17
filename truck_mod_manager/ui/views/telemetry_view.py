@@ -29,7 +29,7 @@ class TelemetryView(QWidget):
 
         # Header Info Card
         header = QFrame()
-        header.setObjectName("headerFrame")
+        header.setObjectName("toolbarCard")
         h_layout = QHBoxLayout(header)
         h_layout.setContentsMargins(10, 8, 10, 8)
 
@@ -43,7 +43,7 @@ class TelemetryView(QWidget):
         info_col.addWidget(self.path_lbl)
         h_layout.addLayout(info_col, stretch=1)
 
-        install_btn = QPushButton("➕ Plugin installieren...")
+        install_btn = QPushButton("➕ Plugin installieren")
         install_btn.setObjectName("primaryBtn")
         install_btn.clicked.connect(self._install_plugin)
         h_layout.addWidget(install_btn)

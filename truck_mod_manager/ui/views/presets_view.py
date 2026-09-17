@@ -34,7 +34,7 @@ class PresetsView(QWidget):
 
         # Header Bar
         header = QFrame()
-        header.setObjectName("headerFrame")
+        header.setObjectName("toolbarCard")
         h_layout = QHBoxLayout(header)
         h_layout.setContentsMargins(10, 8, 10, 8)
 
@@ -48,8 +48,9 @@ class PresetsView(QWidget):
         info_col.addWidget(desc)
         h_layout.addLayout(info_col, stretch=1)
 
-        new_preset_btn = QPushButton("💾 Aktuelle Auswahl als Preset speichern")
+        new_preset_btn = QPushButton("💾 Als Preset speichern")
         new_preset_btn.setObjectName("primaryBtn")
+        new_preset_btn.setToolTip("Aktuelle Auswahl aktiver Mods als neues Preset abspeichern")
         new_preset_btn.clicked.connect(self._save_current_as_preset)
         h_layout.addWidget(new_preset_btn)
 
@@ -71,19 +72,19 @@ class PresetsView(QWidget):
                 padding: 10px 14px;
                 border-radius: 6px;
                 margin-bottom: 3px;
-                background-color: #1e293b;
-                border: 1px solid #334155;
+                background-color: #131b2e;
+                border: 1px solid #243350;
                 color: #f8fafc;
                 font-size: 13px;
                 font-weight: 500;
             }
             QListWidget::item:hover {
-                background-color: #334155;
-                border-color: #475569;
+                background-color: #18233c;
+                border-color: #3b82f6;
             }
             QListWidget::item:selected {
-                background-color: #2563eb;
-                border-color: #3b82f6;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #2563eb, stop:1 #1d4ed8);
+                border-color: #60a5fa;
                 color: #ffffff;
                 font-weight: bold;
             }
@@ -93,11 +94,11 @@ class PresetsView(QWidget):
 
         # Left actions
         left_btn_row = QHBoxLayout()
-        import_btn = QPushButton("📥 Importieren...")
+        import_btn = QPushButton("📥 Importieren")
         import_btn.clicked.connect(self._import_preset)
         left_btn_row.addWidget(import_btn)
 
-        export_btn = QPushButton("📤 Exportieren...")
+        export_btn = QPushButton("📤 Exportieren")
         export_btn.clicked.connect(self._export_preset)
         left_btn_row.addWidget(export_btn)
 
@@ -117,9 +118,11 @@ class PresetsView(QWidget):
         self.detail_card = QFrame()
         self.detail_card.setObjectName("cardFrame")
         detail_layout = QVBoxLayout(self.detail_card)
+        detail_layout.setContentsMargins(12, 10, 12, 10)
+        detail_layout.setSpacing(6)
 
         self.preset_title = QLabel("Kein Preset ausgewählt")
-        self.preset_title.setStyleSheet("font-size: 16px; font-weight: bold; color: #f8fafc;")
+        self.preset_title.setStyleSheet("font-size: 15px; font-weight: bold; color: #f8fafc;")
         detail_layout.addWidget(self.preset_title)
 
         self.preset_desc = QLabel("")
@@ -127,7 +130,7 @@ class PresetsView(QWidget):
         self.preset_desc.setWordWrap(True)
         detail_layout.addWidget(self.preset_desc)
 
-        self.apply_btn = QPushButton("▶ Dieses Preset aktivieren")
+        self.apply_btn = QPushButton("▶ Preset aktivieren")
         self.apply_btn.setObjectName("successBtn")
         self.apply_btn.setEnabled(False)
         self.apply_btn.clicked.connect(self._apply_preset)
@@ -142,7 +145,7 @@ class PresetsView(QWidget):
         splitter.addWidget(right_widget)
         splitter.setSizes([350, 550])
 
-        layout.addWidget(splitter)
+        layout.addWidget(splitter, stretch=1)
 
     def set_game(self, game: TruckGame, all_mods: List[ScsMod]):
         self.game = game

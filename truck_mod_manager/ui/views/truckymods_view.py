@@ -36,14 +36,14 @@ class ModCardWidget(QFrame):
         self.setObjectName("truckyCard")
         self.setStyleSheet("""
             QFrame#truckyCard {
-                background-color: #1e293b;
-                border: 1px solid #334155;
+                background-color: #131b2e;
+                border: 1px solid #243350;
                 border-radius: 8px;
                 padding: 10px;
             }
             QFrame#truckyCard:hover {
                 border-color: #3b82f6;
-                background-color: #243248;
+                background-color: #18233c;
             }
         """)
         self._init_ui()
@@ -57,9 +57,9 @@ class ModCardWidget(QFrame):
         self.img_lbl = QLabel()
         self.img_lbl.setFixedSize(140, 90)
         self.img_lbl.setStyleSheet("""
-            background-color: #0f172a;
+            background-color: #0b0f19;
             border-radius: 6px;
-            border: 1px solid #334155;
+            border: 1px solid #243350;
             color: #64748b;
             font-size: 24px;
         """)
@@ -192,12 +192,7 @@ class TruckyModsView(QWidget):
 
         # 1. Search & Filter Bar
         filter_frame = QFrame()
-        filter_frame.setStyleSheet("""
-            background-color: #1e293b;
-            border: 1px solid #334155;
-            border-radius: 8px;
-            padding: 4px;
-        """)
+        filter_frame.setObjectName("toolbarCard")
         filter_layout = QHBoxLayout(filter_frame)
         filter_layout.setContentsMargins(8, 6, 8, 6)
         filter_layout.setSpacing(10)
@@ -241,9 +236,10 @@ class TruckyModsView(QWidget):
         filter_layout.addWidget(self.search_btn)
 
         # Clear / Reset Button
-        self.reset_btn = QPushButton("✕")
+        self.reset_btn = QPushButton("×")
         self.reset_btn.setToolTip("Suche zurücksetzen")
         self.reset_btn.setFixedSize(32, 32)
+        self.reset_btn.setStyleSheet("font-size: 16px; font-weight: bold;")
         self.reset_btn.clicked.connect(self._reset_search)
         filter_layout.addWidget(self.reset_btn)
 
@@ -288,8 +284,8 @@ class TruckyModsView(QWidget):
         # 4. Pagination Bar
         self.pagination_frame = QFrame()
         self.pagination_frame.setStyleSheet("""
-            background-color: #1e293b;
-            border: 1px solid #334155;
+            background-color: #131b2e;
+            border: 1px solid #243350;
             border-radius: 8px;
             padding: 4px;
         """)

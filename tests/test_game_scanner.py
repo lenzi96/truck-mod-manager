@@ -38,7 +38,7 @@ class TestGameScannerVersionDetection(unittest.TestCase):
         pe_file.write_bytes(payload)
 
         ver = GameScanner._extract_pe_version(pe_file)
-        self.assertEqual(ver, "1.51.2")
+        self.assertEqual(ver, "1.51")
 
     def test_extract_pe_version_ignores_corrupt_early_sig(self):
         pe_file = self.root / "eurotrucks2_false_pos.exe"
@@ -56,19 +56,19 @@ class TestGameScannerVersionDetection(unittest.TestCase):
         )
         pe_file.write_bytes(corrupted + valid)
         ver = GameScanner._extract_pe_version(pe_file)
-        self.assertEqual(ver, "1.51.2")
+        self.assertEqual(ver, "1.51")
 
     def test_extract_pe_version_fallback_regex(self):
         pe_file = self.root / "dummy.exe"
         pe_file.write_bytes(b"some headers ... init ver.1.51.1.5s ... more binary data")
         ver = GameScanner._extract_pe_version(pe_file)
-        self.assertEqual(ver, "1.51.1.5s")
+        self.assertEqual(ver, "1.51")
 
     def test_extract_elf_version(self):
         elf_file = self.root / "eurotrucks2"
         elf_file.write_bytes(b"\x7fELF" + b"A" * 100 + b"Euro Truck Simulator 2 init ver.1.50.2s" + b"B" * 50)
         ver = GameScanner._extract_elf_version(elf_file)
-        self.assertEqual(ver, "1.50.2s")
+        self.assertEqual(ver, "1.50")
 
     def test_detect_version_from_logs_deep_line(self):
         # Multi-core CPUs produce 40+ lines of CPU/GPU logs before init ver.
@@ -83,7 +83,7 @@ class TestGameScannerVersionDetection(unittest.TestCase):
         log_file.write_text("".join(lines), encoding="utf-8")
 
         ver = GameScanner.detect_version_from_logs([log_dir])
-        self.assertEqual(ver, "1.51.1.5s")
+        self.assertEqual(ver, "1.51")
 
     def test_detect_version_from_logs_backup_fallback(self):
         log_dir = self.root / "Euro Truck Simulator 2"
@@ -92,7 +92,7 @@ class TestGameScannerVersionDetection(unittest.TestCase):
         bak_file.write_text("00:00:00.100 : init ver.1.49.2.15\n", encoding="utf-8")
 
         ver = GameScanner.detect_version_from_logs([log_dir])
-        self.assertEqual(ver, "1.49.2.15")
+        self.assertEqual(ver, "1.49")
 
     def test_detect_version_from_binaries(self):
         bin_dir = self.root / "bin" / "win_x64"
@@ -101,7 +101,7 @@ class TestGameScannerVersionDetection(unittest.TestCase):
         exe_file.write_bytes(b"padding ... init ver.1.51.0 ... end")
 
         ver = GameScanner.detect_version_from_binaries(self.root, GameType.ETS2)
-        self.assertEqual(ver, "1.51.0")
+        self.assertEqual(ver, "1.51")
 
     def test_find_game_returns_valid_truckgame(self):
         game = GameScanner.find_game(GameType.ETS2)

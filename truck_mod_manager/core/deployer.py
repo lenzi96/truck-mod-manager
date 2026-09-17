@@ -76,6 +76,16 @@ class ModDeployer:
                             if not is_disabled:
                                 mods[clean_name].is_enabled = True
 
+        # 3. Read mods from Steam Workshop
+        try:
+            from truck_mod_manager.core.workshop_scanner import WorkshopScanner
+            workshop_mods = WorkshopScanner.scan_workshop(game.game_type)
+            for w_mod in workshop_mods:
+                if w_mod.file_name not in mods:
+                    mods[w_mod.file_name] = w_mod
+        except Exception as e:
+            print(f"[Deployer] Error loading workshop mods: {e}")
+
         result = list(mods.values())
         result.sort(key=lambda m: m.display_name.lower())
         return result
@@ -109,6 +119,12 @@ class ModDeployer:
                 # 2. Deploy active mods
                 for mod in active_mods:
                     if not mod.is_enabled:
+                        continue
+                    if mod.is_missing:
+                        continue
+                    if mod.is_workshop:
+                        # Steam Workshop mods are loaded natively by SCS from Steam workshop directories.
+                        # Never symlink or copy them into mod/
                         continue
 
                     src_path = Path(mod.file_path)
@@ -144,6 +160,8 @@ class ModDeployer:
             else:
                 # Direct mode: rename .disabled files
                 for mod in active_mods:
+                    if mod.is_missing or mod.is_workshop or not mod.file_path:
+                        continue
                     current_path = Path(mod.file_path)
                     if mod.is_enabled:
                         if current_path.name.endswith(".disabled"):
@@ -217,6 +235,10 @@ class ModDeployer:
     @classmethod
     def delete_mod(cls, game: TruckGame, mod: ScsMod) -> bool:
         """Deletes a mod file from staging and/or mod directory, cleans up icons and symlinks."""
+        if mod.is_workshop:
+            # Workshop mods cannot be deleted locally; user must unsubscribe in Steam.
+            return False
+
         # 1. Remove primary file
         path = Path(mod.file_path)
         if path.exists():

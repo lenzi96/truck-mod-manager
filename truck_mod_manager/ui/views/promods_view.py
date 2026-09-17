@@ -75,8 +75,8 @@ class ProModsPackCard(QFrame):
             self.setStyleSheet("QFrame#promodsCard { background-color: #261e14; border: 1px solid #d97706; border-radius: 8px; }")
         else:
             badge.setText("⚪ Nicht installiert")
-            badge.setStyleSheet(badge.styleSheet() + "background-color: #334155; color: #94a3b8;")
-            self.setStyleSheet("QFrame#promodsCard { background-color: #1e293b; border: 1px solid #334155; border-radius: 8px; }")
+            badge.setStyleSheet(badge.styleSheet() + "background-color: #141d2d; color: #64748b; border: 1px solid #243350;")
+            self.setStyleSheet("QFrame#promodsCard { background-color: #131b2e; border: 1px solid #243350; border-radius: 8px; }")
 
         top_row.addWidget(badge)
         layout.addLayout(top_row)
@@ -144,12 +144,7 @@ class ProModsView(QWidget):
 
         # 1. Header Frame & Action Buttons
         header_frame = QFrame()
-        header_frame.setStyleSheet("""
-            background-color: #1e293b;
-            border: 1px solid #334155;
-            border-radius: 8px;
-            padding: 8px;
-        """)
+        header_frame.setObjectName("toolbarCard")
         h_layout = QHBoxLayout(header_frame)
         h_layout.setContentsMargins(10, 8, 10, 8)
         h_layout.setSpacing(10)
@@ -167,7 +162,7 @@ class ProModsView(QWidget):
         h_layout.addLayout(title_col, 1)
 
         # Action Buttons
-        self.import_btn = QPushButton("📥 Archive importieren & entpacken")
+        self.import_btn = QPushButton("📦 Entpacken")
         self.import_btn.setFixedHeight(34)
         self.import_btn.setStyleSheet("""
             background-color: #059669;
@@ -181,26 +176,26 @@ class ProModsView(QWidget):
         self.import_btn.clicked.connect(self._import_promods_archives)
         h_layout.addWidget(self.import_btn)
 
-        self.url_dl_btn = QPushButton("🔗 URL-Download")
+        self.url_dl_btn = QPushButton("🔗 Download")
         self.url_dl_btn.setFixedHeight(34)
         self.url_dl_btn.setToolTip("ProMods oder beliebige Mods über einen direkten Web-Link herunterladen")
         self.url_dl_btn.clicked.connect(self._open_url_download_dialog)
         h_layout.addWidget(self.url_dl_btn)
 
-        self.apply_btn = QPushButton("⚡ Ladereihenfolge anwenden")
+        self.apply_btn = QPushButton("⚡ Sortieren")
         self.apply_btn.setObjectName("primaryBtn")
         self.apply_btn.setFixedHeight(34)
         self.apply_btn.setToolTip("Ordnet alle ProMods-Komponenten und Road-Connectors nach den offiziellen Vorgaben")
         self.apply_btn.clicked.connect(self._apply_load_order)
         h_layout.addWidget(self.apply_btn)
 
-        self.save_preset_btn = QPushButton("💾 Preset speichern")
+        self.save_preset_btn = QPushButton("💾 Preset")
         self.save_preset_btn.setFixedHeight(34)
         self.save_preset_btn.setToolTip("Speichert das aktuelle ProMods-Setup als Preset ab")
         self.save_preset_btn.clicked.connect(self._save_as_preset)
         h_layout.addWidget(self.save_preset_btn)
 
-        self.def_btn = QPushButton("⚙️ Def-Generator")
+        self.def_btn = QPushButton("⚙️ Def-Gen")
         self.def_btn.setFixedHeight(34)
         self.def_btn.setToolTip("Öffnet den offiziellen ProMods Definition-File Generator auf promods.net")
         self.def_btn.clicked.connect(self._open_def_generator)
@@ -231,13 +226,13 @@ class ProModsView(QWidget):
         self.body_layout.addWidget(self.packs_container)
 
         # Map Combo Guidelines Box
-        combo_group = QGroupBox("📖 Offizielle Ladereihenfolge & Kartenkombinationen (Guide)")
+        combo_group = QGroupBox("📖 Offizielle Ladereihenfolge && Kartenkombinationen (Guide)")
         combo_group.setStyleSheet("""
             QGroupBox {
                 font-weight: bold;
                 font-size: 13px;
                 color: #f8fafc;
-                border: 1px solid #334155;
+                border: 1px solid #243350;
                 border-radius: 8px;
                 margin-top: 14px;
                 padding-top: 14px;

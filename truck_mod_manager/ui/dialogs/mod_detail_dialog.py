@@ -41,7 +41,7 @@ class ModDetailDialog(QDialog):
         icon_label = QLabel()
         icon_label.setFixedSize(140, 82)
         icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        icon_label.setStyleSheet("background-color: #0f172a; border-radius: 6px; border: 1px solid #334155;")
+        icon_label.setStyleSheet("background-color: #0b0f19; border-radius: 6px; border: 1px solid #243350;")
 
         if self.mod.icon_path and Path(self.mod.icon_path).exists():
             pix = QPixmap(self.mod.icon_path)
@@ -88,7 +88,7 @@ class ModDetailDialog(QDialog):
             compat_badge.setStyleSheet("background-color: #064e3b; color: #6ee7b7; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;")
         else:
             compat_badge = QLabel(f"🌐 {compat_msg}")
-            compat_badge.setStyleSheet("background-color: #334155; color: #cbd5e1; padding: 2px 8px; border-radius: 4px; font-size: 11px;")
+            compat_badge.setStyleSheet("background-color: #141d2d; color: #cbd5e1; border: 1px solid #243350; padding: 2px 8px; border-radius: 4px; font-size: 11px;")
 
         compat_layout.addWidget(compat_badge)
         compat_layout.addStretch()
