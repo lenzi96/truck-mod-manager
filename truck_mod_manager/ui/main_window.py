@@ -11,7 +11,7 @@ from PyQt6.QtGui import QIcon, QPixmap
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QTabWidget, QStatusBar, QMessageBox, QFrame,
-    QButtonGroup
+    QButtonGroup, QInputDialog
 )
 
 from truck_mod_manager.core.config import config
@@ -117,6 +117,10 @@ class MainWindow(QMainWindow):
         # Status indicator
         self.game_status_lbl = QLabel("Wird geladen...")
         self.game_status_lbl.setStyleSheet("color: #94a3b8; font-size: 12px;")
+        self.game_status_lbl.setTextFormat(Qt.TextFormat.RichText)
+        self.game_status_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.LinksAccessibleByMouse | Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.game_status_lbl.setOpenExternalLinks(False)
+        self.game_status_lbl.linkActivated.connect(self._on_status_link_clicked)
         h_layout.addWidget(self.game_status_lbl)
 
         # Update Button
@@ -214,7 +218,16 @@ class MainWindow(QMainWindow):
         active_count = sum(1 for m in self.current_mods if m.is_enabled)
         mode_str = "Steam Proton" if self.current_game.is_proton else "Linux Native"
         inst_str = "Installiert" if self.current_game.is_installed else "Pfad nicht gefunden"
-        ver_str = f" • <span style='color: #60a5fa; font-weight: bold;'>v{self.current_game.detected_game_version}</span>" if self.current_game.detected_game_version else " • Version: Unbekannt"
+        if self.current_game.detected_game_version:
+            ver_str = (
+                f" • <span style='color: #60a5fa; font-weight: bold;'>v{self.current_game.detected_game_version}</span> "
+                f"<a href='set_version' style='color: #94a3b8; text-decoration: underline; font-size: 11px;'>[✏️ Ändern]</a>"
+            )
+        else:
+            ver_str = (
+                " • <span style='color: #f87171;'>Version: Unbekannt</span> "
+                "<a href='set_version' style='color: #38bdf8; font-weight: bold; text-decoration: underline; font-size: 11px;'>[✏️ Festlegen]</a>"
+            )
         self.game_status_lbl.setText(f"Modus: <b>{mode_str}</b> ({inst_str}{ver_str})")
 
         # Distribute data to views
@@ -333,3 +346,66 @@ class MainWindow(QMainWindow):
             self.status_bar.showMessage(f"Spiel gestartet: {self.current_game.name} (AppID {appid})")
         except Exception as e:
             QMessageBox.critical(self, "Startfehler", f"Konnte Spiel nicht über Steam starten: {e}")
+
+    def _on_status_link_clicked(self, link: str):
+        if link == "set_version":
+            self._prompt_set_game_version()
+
+    def _prompt_set_game_version(self):
+        if not self.current_game:
+            return
+
+        current_val = self.current_game.detected_game_version or "1.51"
+        preset_versions = ["1.51", "1.50", "1.49", "1.48", "1.47"]
+        options = list(preset_versions)
+        if current_val and current_val not in preset_versions:
+            options.insert(0, current_val)
+        options.append("Benutzerdefiniert / Manuell eingeben...")
+        options.append("Automatische Erkennung zurücksetzen")
+
+        initial_idx = 0
+        if current_val in options:
+            initial_idx = options.index(current_val)
+
+        choice, ok = QInputDialog.getItem(
+            self,
+            f"Spielversion festlegen - {self.current_game.name}",
+            f"Wählen Sie die Spielversion für {self.current_game.name}:\n"
+            "(Wird für Kompatibilitätsfilter und Mod-Warnungen verwendet)",
+            options,
+            initial_idx,
+            False
+        )
+        if not ok or not choice:
+            return
+
+        game_key = self.current_game_type.value
+
+        if choice == "Automatische Erkennung zurücksetzen":
+            config.set_game_config(game_key, "game_version_override", "")
+            self.games[self.current_game_type] = GameScanner.find_game(self.current_game_type)
+            self._switch_game(self.current_game_type)
+            self.status_bar.showMessage("Spielversion auf automatische Erkennung zurückgesetzt.", 5000)
+            return
+
+        final_version = choice
+        if "Benutzerdefiniert" in choice:
+            custom_val, ok2 = QInputDialog.getText(
+                self,
+                "Benutzerdefinierte Spielversion",
+                "Geben Sie die Versionsnummer ein (z.B. 1.51 oder 1.51.1):",
+                text=current_val
+            )
+            if not ok2 or not custom_val.strip():
+                return
+            final_version = custom_val.strip()
+
+        config.set_game_config(game_key, "game_version_override", final_version)
+
+        # Update in-memory game & switch game to refresh UI and mod compatibility
+        self.games[self.current_game_type] = GameScanner.find_game(self.current_game_type)
+        self._switch_game(self.current_game_type)
+        self.status_bar.showMessage(
+            f"Spielversion für {self.current_game.name} auf v{final_version} gesetzt.", 5000
+        )
+

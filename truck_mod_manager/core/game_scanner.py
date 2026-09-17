@@ -4,6 +4,7 @@ Detects Steam installations, Native Linux binaries, and Proton Wine prefixes.
 """
 import os
 import re
+import struct
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -185,6 +186,112 @@ class GameScanner:
                 # Default to native path even if not created yet
                 user_path = native_user
 
+    @staticmethod
+    def _extract_pe_version(exe_path: Path) -> Optional[str]:
+        """Extracts FileVersion/ProductVersion from a Windows PE executable header or string table."""
+        if not exe_path.is_file():
+            return None
+        try:
+            with open(exe_path, "rb") as f:
+                data = f.read(32 * 1024 * 1024)
+            sig = b"\xbd\x04\xef\xfe"  # VS_FIXEDFILEINFO magic
+            idx = data.find(sig)
+            if idx != -1 and len(data) >= idx + 52:
+                struc = data[idx:idx + 24]
+                _, _, f_ms, f_ls, p_ms, p_ls = struct.unpack("<IIIIII", struc)
+                f_major = f_ms >> 16
+                f_minor = f_ms & 0xFFFF
+                f_build = f_ls >> 16
+                f_rev = f_ls & 0xFFFF
+                if f_major > 0:
+                    if f_rev > 0:
+                        return f"{f_major}.{f_minor}.{f_build}.{f_rev}"
+                    elif f_build > 0:
+                        return f"{f_major}.{f_minor}.{f_build}"
+                    else:
+                        return f"{f_major}.{f_minor}"
+
+            # Fallback regex search on binary bytes
+            m = re.search(rb"init ver\.?\s*([0-9]+\.[0-9]+(?:\.[0-9]+)*[a-z]?)", data)
+            if m:
+                return m.group(1).decode("ascii", errors="ignore").strip()
+        except Exception as e:
+            print(f"[GameScanner] Error extracting PE version from {exe_path}: {e}")
+        return None
+
+    @staticmethod
+    def _extract_elf_version(bin_path: Path) -> Optional[str]:
+        """Extracts version string from a Linux ELF binary."""
+        if not bin_path.is_file():
+            return None
+        try:
+            with open(bin_path, "rb") as f:
+                data = f.read(32 * 1024 * 1024)
+            m = re.search(rb"init ver\.?\s*([0-9]+\.[0-9]+(?:\.[0-9]+)*[a-z]?)", data)
+            if m:
+                return m.group(1).decode("ascii", errors="ignore").strip()
+            m2 = re.search(rb"(?:Euro Truck Simulator 2|American Truck Simulator)\s+v?([0-9]+\.[0-9]+(?:\.[0-9]+)*[a-z]?)", data)
+            if m2:
+                return m2.group(1).decode("ascii", errors="ignore").strip()
+        except Exception as e:
+            print(f"[GameScanner] Error extracting ELF version from {bin_path}: {e}")
+        return None
+
+    @classmethod
+    def detect_version_from_binaries(cls, install_path: Path, game_type: GameType) -> Optional[str]:
+        """Checks executable binaries in the game install directory for version info."""
+        if not install_path or not install_path.exists():
+            return None
+
+        is_ets2 = (game_type == GameType.ETS2)
+        candidates = [
+            install_path / "bin" / "win_x64" / ("eurotrucks2.exe" if is_ets2 else "amtrucks.exe"),
+            install_path / "bin" / "linux_x64" / ("eurotrucks2" if is_ets2 else "amtrucks"),
+            install_path / "bin" / "win_x86" / ("eurotrucks2.exe" if is_ets2 else "amtrucks.exe"),
+            install_path / "bin" / "linux_x86" / ("eurotrucks2" if is_ets2 else "amtrucks"),
+        ]
+
+        for exe in candidates:
+            if not exe.is_file():
+                continue
+            if exe.suffix.lower() == ".exe":
+                ver = cls._extract_pe_version(exe)
+                if ver:
+                    return ver
+            else:
+                ver = cls._extract_elf_version(exe)
+                if ver:
+                    return ver
+        return None
+
+    @classmethod
+    def detect_version_from_logs(cls, candidate_dirs: List[Path]) -> Optional[str]:
+        """Scans candidate directories for game.log.txt or game.log.bak.txt and extracts version."""
+        for cdir in candidate_dirs:
+            if not cdir or not cdir.exists():
+                continue
+            for log_name in ("game.log.txt", "game.log.bak.txt"):
+                log_file = cdir / log_name
+                if not log_file.is_file():
+                    continue
+                try:
+                    with open(log_file, "r", encoding="utf-8", errors="ignore") as f:
+                        for idx, line in enumerate(f):
+                            if idx > 500:
+                                break
+                            m = re.search(r"init ver\.?\s*([0-9]+\.[0-9]+(?:\.[0-9]+)*\w*)", line, re.IGNORECASE)
+                            if m:
+                                return m.group(1).strip()
+                            m2 = re.search(r"(?:Euro Truck Simulator 2|American Truck Simulator)\s+init\s+ver\.?\s*([0-9]+\.[0-9]+(?:\.[0-9]+)*\w*)", line, re.IGNORECASE)
+                            if m2:
+                                return m2.group(1).strip()
+                            m3 = re.search(r"\[sys\]\s+(?:game\s+)?version[:\s]+([0-9]+\.[0-9]+(?:\.[0-9]+)*\w*)", line, re.IGNORECASE)
+                            if m3:
+                                return m3.group(1).strip()
+                except Exception as e:
+                    print(f"[GameScanner] Error reading version from {log_file}: {e}")
+        return None
+
         # 4. Mod directory
         if not mod_path or not mod_path.exists():
             if user_path:
@@ -192,23 +299,36 @@ class GameScanner:
 
         is_installed = bool(install_path and install_path.exists())
 
-        # 5. Detect Game Version from game.log.txt or config override
+        # Collect candidate directories for log searching
+        candidate_user_dirs: List[Path] = []
+        if user_path:
+            candidate_user_dirs.append(user_path)
+        if proton_pfx:
+            candidate_user_dirs.append(proton_pfx / "drive_c" / "users" / "steamuser" / "Documents" / info["dir_name"])
+            candidate_user_dirs.append(proton_pfx / "drive_c" / "users" / "steamuser" / "My Documents" / info["dir_name"])
+
+        # Native Linux and Flatpak standard paths
+        candidate_user_dirs.append(Path(os.path.expanduser(f"~/.local/share/{info['dir_name']}")))
+        candidate_user_dirs.append(Path(os.path.expanduser(f"~/.var/app/com.valvesoftware.Steam/.local/share/{info['dir_name']}")))
+        candidate_user_dirs.append(Path(os.path.expanduser(f"~/Documents/{info['dir_name']}")))
+
+        # Check compatdata in all Steam libraries
+        for lib in libraries:
+            pfx_c = lib / "steamapps" / "compatdata" / appid / "pfx"
+            if pfx_c.exists():
+                candidate_user_dirs.append(pfx_c / "drive_c" / "users" / "steamuser" / "Documents" / info["dir_name"])
+
+        # 5. Detect Game Version (Multi-Tier)
+        # Tier 1: User override in settings
         detected_version = game_cfg.get("game_version_override", "").strip()
-        if not detected_version and user_path:
-            log_p = user_path / "game.log.txt"
-            if log_p.exists():
-                try:
-                    with open(log_p, "r", encoding="utf-8", errors="ignore") as f:
-                        for idx, line in enumerate(f):
-                            if idx > 35:
-                                break
-                            if "init ver." in line:
-                                m = re.search(r"init ver\.([0-9\.\w]+)", line)
-                                if m:
-                                    detected_version = m.group(1)
-                                    break
-                except Exception as e:
-                    print(f"[GameScanner] Error reading version from log: {e}")
+
+        # Tier 2: Directly inspect game executable binaries (PE resource or ELF strings)
+        if not detected_version and install_path:
+            detected_version = cls.detect_version_from_binaries(install_path, game_type) or ""
+
+        # Tier 3: Scan game.log.txt across all candidate locations
+        if not detected_version:
+            detected_version = cls.detect_version_from_logs(candidate_user_dirs) or ""
 
         return TruckGame(
             game_type=game_type,
