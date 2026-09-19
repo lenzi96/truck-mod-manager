@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "truck-mod-manager"
-version = "1.1.0"
+version = "1.2.0"
 description = "Native Mod Manager for Euro Truck Simulator 2 & American Truck Simulator on Linux"
 readme = "README.md"
 authors = [{ name = "Julian" }]

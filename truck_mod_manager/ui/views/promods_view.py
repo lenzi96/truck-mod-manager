@@ -15,10 +15,10 @@ from PyQt6.QtWidgets import (
 from truck_mod_manager.core.deployer import ModDeployer
 from truck_mod_manager.core.downloader import ArchiveExtractor
 from truck_mod_manager.core.models import GameType, ScsMod, TruckGame
-from truck_mod_manager.core.preset_manager import PresetManager
 from truck_mod_manager.core.promods_manager import (
     ProModsManager, ProModsPackStatus, ProModsPackType
 )
+from truck_mod_manager.ui.dialogs.promods_download_dialog import ProModsDownloadDialog
 from truck_mod_manager.ui.dialogs.url_download_dialog import UrlDownloadDialog
 from PyQt6.QtWidgets import (
     QFileDialog, QFrame, QGridLayout, QGroupBox, QHBoxLayout, QHeaderView,
@@ -28,6 +28,8 @@ from PyQt6.QtWidgets import (
 
 
 class ProModsPackCard(QFrame):
+    download_requested = pyqtSignal(object)
+
     def __init__(self, pack_status: ProModsPackStatus, parent=None):
         super().__init__(parent)
         self.pack_status = pack_status
@@ -39,14 +41,15 @@ class ProModsPackCard(QFrame):
         layout.setContentsMargins(12, 12, 12, 12)
         layout.setSpacing(8)
 
-        # Header: Title + Status Badge
+        # Header: Title + Installed/Web Versions + Status Badge + Download Button
         top_row = QHBoxLayout()
-        top_row.setSpacing(10)
+        top_row.setSpacing(8)
 
         title_lbl = QLabel(self.pack_status.title)
         title_lbl.setStyleSheet("font-size: 14px; font-weight: bold; color: #f8fafc;")
         top_row.addWidget(title_lbl)
 
+        # Installed version badge
         if self.pack_status.version:
             ver_lbl = QLabel(f"v{self.pack_status.version}")
             ver_lbl.setStyleSheet("""
@@ -57,28 +60,90 @@ class ProModsPackCard(QFrame):
                 border-radius: 4px;
                 font-weight: bold;
             """)
+            ver_lbl.setToolTip(f"Installierte Version: v{self.pack_status.version}")
             top_row.addWidget(ver_lbl)
+
+        # Latest web version badge
+        if self.pack_status.latest_version:
+            web_lbl = QLabel(f"Web: v{self.pack_status.latest_version}")
+            web_lbl.setStyleSheet("""
+                font-size: 11px;
+                color: #94a3b8;
+                background-color: #1e293b;
+                padding: 2px 8px;
+                border: 1px solid #334155;
+                border-radius: 4px;
+                font-weight: 500;
+            """)
+            web_lbl.setToolTip(f"Offizielle Version auf promods.net: v{self.pack_status.latest_version} ({self.pack_status.game_compatibility})")
+            top_row.addWidget(web_lbl)
 
         top_row.addStretch()
 
-        # Status badge
+        # Status badge (Aktuell vs Update vs Unvollständig vs Nicht installiert)
         badge = QLabel()
         badge.setStyleSheet("font-size: 11px; font-weight: bold; padding: 4px 10px; border-radius: 6px;")
 
         if self.pack_status.is_complete:
-            badge.setText(f"✅ {self.pack_status.total_found}/{self.pack_status.total_required} Vollständig")
-            badge.setStyleSheet(badge.styleSheet() + "background-color: #064e3b; color: #34d399; border: 1px solid #059669;")
-            self.setStyleSheet("QFrame#promodsCard { background-color: #13271d; border: 1px solid #059669; border-radius: 8px; }")
+            if self.pack_status.is_update_available:
+                badge.setText(f"🔄 Update auf v{self.pack_status.latest_version} verfügbar")
+                badge.setStyleSheet(badge.styleSheet() + "background-color: #431407; color: #fb923c; border: 1px solid #c2410c;")
+                self.setStyleSheet("QFrame#promodsCard { background-color: #241611; border: 1px solid #c2410c; border-radius: 8px; }")
+            else:
+                badge.setText(f"✅ Aktuell (v{self.pack_status.version or self.pack_status.latest_version})")
+                badge.setStyleSheet(badge.styleSheet() + "background-color: #064e3b; color: #34d399; border: 1px solid #059669;")
+                self.setStyleSheet("QFrame#promodsCard { background-color: #13271d; border: 1px solid #059669; border-radius: 8px; }")
         elif self.pack_status.is_installed:
-            badge.setText(f"⚠️ {self.pack_status.total_found}/{self.pack_status.total_required} Unvollständig")
-            badge.setStyleSheet(badge.styleSheet() + "background-color: #451a03; color: #fbbf24; border: 1px solid #d97706;")
+            if self.pack_status.is_update_available:
+                badge.setText(f"⚠️ Unvollständig (Update v{self.pack_status.latest_version})")
+                badge.setStyleSheet(badge.styleSheet() + "background-color: #451a03; color: #fbbf24; border: 1px solid #d97706;")
+            else:
+                badge.setText(f"⚠️ {self.pack_status.total_found}/{self.pack_status.total_required} Unvollständig")
+                badge.setStyleSheet(badge.styleSheet() + "background-color: #451a03; color: #fbbf24; border: 1px solid #d97706;")
             self.setStyleSheet("QFrame#promodsCard { background-color: #261e14; border: 1px solid #d97706; border-radius: 8px; }")
         else:
-            badge.setText("⚪ Nicht installiert")
+            badge.setText(f"⚪ Nicht installiert (v{self.pack_status.latest_version or '?'})")
             badge.setStyleSheet(badge.styleSheet() + "background-color: #141d2d; color: #64748b; border: 1px solid #243350;")
             self.setStyleSheet("QFrame#promodsCard { background-color: #131b2e; border: 1px solid #243350; border-radius: 8px; }")
 
         top_row.addWidget(badge)
+
+        # Dedicated Download button on the card
+        dl_btn = QPushButton("⬇️ Download")
+        dl_btn.setFixedHeight(28)
+        if not self.pack_status.is_installed or self.pack_status.is_update_available:
+            dl_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #2563eb;
+                    color: #ffffff;
+                    font-size: 11px;
+                    font-weight: bold;
+                    border-radius: 5px;
+                    padding: 0 12px;
+                }
+                QPushButton:hover {
+                    background-color: #1d4ed8;
+                }
+            """)
+        else:
+            dl_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #1e293b;
+                    color: #cbd5e1;
+                    font-size: 11px;
+                    border: 1px solid #334155;
+                    border-radius: 5px;
+                    padding: 0 10px;
+                }
+                QPushButton:hover {
+                    background-color: #334155;
+                    color: #ffffff;
+                }
+            """)
+        dl_btn.setToolTip(f"Download-Optionen für {self.pack_status.title} (Offizielle Seite / Schnelldownload-Direktlink)")
+        dl_btn.clicked.connect(lambda: self.download_requested.emit(self.pack_status))
+        top_row.addWidget(dl_btn)
+
         layout.addLayout(top_row)
 
         # Missing components warning if incomplete
@@ -162,6 +227,12 @@ class ProModsView(QWidget):
         h_layout.addLayout(title_col, 1)
 
         # Action Buttons
+        self.check_updates_btn = QPushButton("🔄 Versionen prüfen")
+        self.check_updates_btn.setFixedHeight(34)
+        self.check_updates_btn.setToolTip("Prüft den Status aller Pakete gegen die neuesten offiziellen Versionen auf promods.net")
+        self.check_updates_btn.clicked.connect(self._check_version_updates)
+        h_layout.addWidget(self.check_updates_btn)
+
         self.import_btn = QPushButton("📦 Entpacken")
         self.import_btn.setFixedHeight(34)
         self.import_btn.setStyleSheet("""
@@ -176,7 +247,7 @@ class ProModsView(QWidget):
         self.import_btn.clicked.connect(self._import_promods_archives)
         h_layout.addWidget(self.import_btn)
 
-        self.url_dl_btn = QPushButton("🔗 Download")
+        self.url_dl_btn = QPushButton("🔗 Direkt-Download")
         self.url_dl_btn.setFixedHeight(34)
         self.url_dl_btn.setToolTip("ProMods oder beliebige Mods über einen direkten Web-Link herunterladen")
         self.url_dl_btn.clicked.connect(self._open_url_download_dialog)
@@ -188,12 +259,6 @@ class ProModsView(QWidget):
         self.apply_btn.setToolTip("Ordnet alle ProMods-Komponenten und Road-Connectors nach den offiziellen Vorgaben")
         self.apply_btn.clicked.connect(self._apply_load_order)
         h_layout.addWidget(self.apply_btn)
-
-        self.save_preset_btn = QPushButton("💾 Preset")
-        self.save_preset_btn.setFixedHeight(34)
-        self.save_preset_btn.setToolTip("Speichert das aktuelle ProMods-Setup als Preset ab")
-        self.save_preset_btn.clicked.connect(self._save_as_preset)
-        h_layout.addWidget(self.save_preset_btn)
 
         self.def_btn = QPushButton("⚙️ Def-Gen")
         self.def_btn.setFixedHeight(34)
@@ -296,12 +361,35 @@ class ProModsView(QWidget):
 
         for pack in self.pack_statuses:
             card = ProModsPackCard(pack)
+            card.download_requested.connect(self._open_pack_download_dialog)
             self.packs_layout.addWidget(card)
 
         # Enable / disable action buttons based on presence of ProMods mods
         has_promods = any(p.is_installed for p in self.pack_statuses)
         self.apply_btn.setEnabled(has_promods)
-        self.save_preset_btn.setEnabled(has_promods)
+
+    def _open_pack_download_dialog(self, pack: ProModsPackStatus):
+        if not self.current_game:
+            return
+        dlg = ProModsDownloadDialog(pack, self.current_game, parent=self)
+        dlg.download_success.connect(lambda files: (self.mods_imported.emit(), self.refresh()))
+        dlg.exec()
+
+    def _check_version_updates(self):
+        self.refresh()
+        updates_count = sum(1 for p in self.pack_statuses if p.is_update_available)
+        installed_count = sum(1 for p in self.pack_statuses if p.is_installed)
+        if updates_count > 0:
+            msg = (
+                f"Versionsprüfung abgeschlossen!\n\n"
+                f"Für {updates_count} deiner installierten ProMods-Pakete ist ein Update auf promods.net verfügbar."
+            )
+        else:
+            msg = (
+                f"Versionsprüfung abgeschlossen!\n\n"
+                f"Alle {installed_count} installierten ProMods-Pakete entsprechen den neuesten offiziellen Web-Versionen (promods.net)."
+            )
+        QMessageBox.information(self, "ProMods Versionsprüfung", msg)
 
     def _apply_load_order(self):
         if not self.current_mods or not self.current_game:
@@ -321,33 +409,6 @@ class ProModsView(QWidget):
             "Ladereihenfolge angewendet",
             "Die offizielle ProMods-Ladereihenfolge wurde erfolgreich auf deine Mods angewendet!\n\n"
             "Die Definitionen, Modelle und Road Connectors wurden nach Priorität einsortiert."
-        )
-
-    def _save_as_preset(self):
-        if not self.current_game:
-            return
-
-        preset_name = f"ProMods {self.current_game.game_type.name} Setup"
-        # Gather active promods mods
-        promods_mods = ProModsManager.get_promods_load_order(self.current_mods, self.current_game.game_type)
-        if not promods_mods:
-            QMessageBox.warning(self, "Keine ProMods-Dateien", "Es wurden keine ProMods-Archive in deiner Bibliothek gefunden.")
-            return
-
-        # Activate promods mods and make sure they are included
-        for m in promods_mods:
-            m.is_enabled = True
-
-        preset = PresetManager.save_current_as_preset(
-            game_type=self.current_game.game_type,
-            preset_name=preset_name,
-            mods=self.current_mods,
-            description="Automatisch erstelltes Preset mit offizieller ProMods-Ladereihenfolge"
-        )
-        QMessageBox.information(
-            self,
-            "Preset gespeichert",
-            f"Das Preset '{preset.name}' wurde erfolgreich mit {len(preset.active_mods)} Mods gespeichert!"
         )
 
     def _import_promods_archives(self):

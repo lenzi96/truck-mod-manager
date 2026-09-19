@@ -203,6 +203,34 @@ class GameScanner:
         return latest
 
     @classmethod
+    def score_user_dir(cls, d: Optional[Path]) -> int:
+        """
+        Calculates an activity score for a user directory to automatically choose
+        the real game save and mod directory (e.g. Proton prefix vs native linux).
+        """
+        if not d or not d.is_dir():
+            return -1
+        score = 0
+        if (d / "game.log.txt").is_file():
+            score += 100
+        if (d / "config.cfg").is_file():
+            score += 50
+        profiles_dir = d / "profiles"
+        if profiles_dir.is_dir() and any(profiles_dir.iterdir()):
+            score += 100
+        steam_profiles_dir = d / "steam_profiles"
+        if steam_profiles_dir.is_dir() and any(steam_profiles_dir.iterdir()):
+            score += 80
+        mod_dir = d / "mod"
+        if mod_dir.is_dir():
+            real_mods = [f for f in mod_dir.iterdir() if f.is_file() or (f.is_symlink() and f.resolve().is_file())]
+            if real_mods:
+                score += 80
+            elif any(mod_dir.iterdir()):
+                score += 20
+        return score
+
+    @classmethod
     def detect_version_from_binaries(cls, install_path: Path, game_type: GameType) -> Optional[str]:
         """Checks executable binaries in the game install directory for version info."""
         if not install_path or not install_path.exists():
@@ -320,6 +348,15 @@ class GameScanner:
 
             if is_proton_pref and proton_user and proton_user.exists():
                 user_path = proton_user
+            elif proton_user and proton_user.exists() and native_user.exists():
+                # Compare activity scores to determine if Proton or Native is active
+                p_score = cls.score_user_dir(proton_user)
+                n_score = cls.score_user_dir(native_user)
+                if p_score > n_score:
+                    user_path = proton_user
+                    is_proton_pref = True
+                else:
+                    user_path = native_user
             elif native_user.exists():
                 user_path = native_user
             elif proton_user and proton_user.exists():

@@ -2,11 +2,11 @@ from setuptools import setup, find_packages
 
 setup(
     name="truck-mod-manager",
-    version="1.1.0",
+    version="1.2.0",
     packages=find_packages(),
     include_package_data=True,
     package_data={
-        "truck_mod_manager": ["resources/*"],
+        "truck_mod_manager": ["resources/*", "resources/data/*"],
     },
     entry_points={
         "console_scripts": [

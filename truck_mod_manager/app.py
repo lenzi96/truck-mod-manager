@@ -13,7 +13,7 @@ from PyQt6.QtWidgets import QApplication, QMessageBox
 
 from truck_mod_manager.ui.main_window import MainWindow
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 
 
 def main():

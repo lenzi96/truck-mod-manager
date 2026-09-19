@@ -23,9 +23,9 @@ from truck_mod_manager.core.profile_manager import ProfileManager
 from truck_mod_manager.ui.dialogs import GitHubUpdateDialog
 from truck_mod_manager.ui.style import DARK_THEME_QSS
 from truck_mod_manager.ui.views import (
-    ModsView, LoadOrderView, PresetsView, LogAnalyzerView,
+    ModsView, LoadOrderView, LogAnalyzerView,
     TelemetryView, WorkshopView, SettingsView, TruckyModsView,
-    ProModsView
+    ProModsView, TruckToolsView
 )
 
 
@@ -183,10 +183,6 @@ class MainWindow(QMainWindow):
         self.load_order_view.reload_from_log_requested.connect(self._on_reload_from_log_requested)
         self.tabs.addTab(self.load_order_view, "⚡ Ladereihenfolge")
 
-        self.presets_view = PresetsView()
-        self.presets_view.preset_applied.connect(self._on_preset_applied)
-        self.tabs.addTab(self.presets_view, "📁 Presets")
-
         self.promods_view = ProModsView()
         self.promods_view.order_applied.connect(self._on_promods_order_applied)
         self.promods_view.mods_imported.connect(self._on_external_mods_added)
@@ -198,6 +194,9 @@ class MainWindow(QMainWindow):
 
         self.workshop_view = WorkshopView()
         self.tabs.addTab(self.workshop_view, "🛒 Workshop")
+
+        self.truck_tools_view = TruckToolsView()
+        self.tabs.addTab(self.truck_tools_view, "🛠️ Truck Tools")
 
         self.log_view = LogAnalyzerView()
         self.tabs.addTab(self.log_view, "📋 Log-Analyse")
@@ -330,12 +329,12 @@ class MainWindow(QMainWindow):
         # Distribute data to views
         self.mods_view.set_game(self.current_game, self.current_mods)
         self.load_order_view.set_game(self.current_game, self.current_mods)
-        self.presets_view.set_game(self.current_game, self.current_mods)
         self.promods_view.set_game(self.current_game, self.current_mods)
         self.truckymods_view.set_game(self.current_game)
         self.log_view.set_game(self.current_game)
         self.telemetry_view.set_game(self.current_game)
         self.workshop_view.set_game(self.current_game)
+        self.truck_tools_view.set_game_and_profile(self.current_game, self.current_profile)
 
         self.status_bar.showMessage(
             f"{self.current_game.name} [{self.current_profile.name}]: {len(self.current_mods)} Mods ({active_count} aktiv geladen)"
@@ -372,8 +371,8 @@ class MainWindow(QMainWindow):
         # 5. Refresh all views
         self.mods_view.set_game(self.current_game, self.current_mods)
         self.load_order_view.set_game(self.current_game, self.current_mods)
-        self.presets_view.set_game(self.current_game, self.current_mods)
         self.promods_view.set_game(self.current_game, self.current_mods)
+        self.truck_tools_view.set_game_and_profile(self.current_game, self.current_profile)
 
         active_count = sum(1 for m in self.current_mods if m.is_enabled)
         self.status_bar.showMessage(
@@ -392,7 +391,6 @@ class MainWindow(QMainWindow):
 
         self.mods_view.set_game(self.current_game, self.current_mods)
         self.load_order_view.set_game(self.current_game, self.current_mods)
-        self.presets_view.set_game(self.current_game, self.current_mods)
         self.promods_view.set_game(self.current_game, self.current_mods)
 
         active_count = sum(1 for m in self.current_mods if m.is_enabled)
@@ -441,7 +439,6 @@ class MainWindow(QMainWindow):
 
         self.mods_view.set_game(self.current_game, self.current_mods)
         self.load_order_view.set_game(self.current_game, self.current_mods)
-        self.presets_view.set_game(self.current_game, self.current_mods)
         self.promods_view.set_game(self.current_game, self.current_mods)
 
         active_count = sum(1 for m in self.current_mods if m.is_enabled)
@@ -462,9 +459,8 @@ class MainWindow(QMainWindow):
                 self.current_game_type, self.current_profile.id, self.current_mods,
                 profile_name=self.current_profile.name
             )
-        # Sync to load order, presets and promods view
+        # Sync to load order and promods view
         self.load_order_view.set_game(self.current_game, self.current_mods)
-        self.presets_view.set_game(self.current_game, self.current_mods)
         self.promods_view.set_game(self.current_game, self.current_mods)
 
     def _on_order_changed(self):
@@ -477,17 +473,6 @@ class MainWindow(QMainWindow):
         # Sync back to mods view
         self.mods_view.all_mods = self.current_mods
         self.mods_view._refresh_list()
-        self.promods_view.set_game(self.current_game, self.current_mods)
-
-    def _on_preset_applied(self):
-        if self.current_game and self.current_profile:
-            ProfileManager.save_profile_state(
-                self.current_game_type, self.current_profile.id, self.current_mods,
-                profile_name=self.current_profile.name
-            )
-        self.mods_view.all_mods = self.current_mods
-        self.mods_view._refresh_list()
-        self.load_order_view.set_game(self.current_game, self.current_mods)
         self.promods_view.set_game(self.current_game, self.current_mods)
 
     def _on_promods_order_applied(self):
@@ -509,7 +494,6 @@ class MainWindow(QMainWindow):
             )
         self.mods_view.set_game(self.current_game, self.current_mods)
         self.load_order_view.set_game(self.current_game, self.current_mods)
-        self.presets_view.set_game(self.current_game, self.current_mods)
         self.promods_view.set_game(self.current_game, self.current_mods)
         active_count = sum(1 for m in self.current_mods if m.is_enabled)
         self.status_bar.showMessage(
@@ -534,6 +518,8 @@ class MainWindow(QMainWindow):
             self.telemetry_view.refresh()
         elif "Workshop" in tab_text:
             self.workshop_view.refresh()
+        elif "Truck Tools" in tab_text:
+            self.truck_tools_view.refresh_savegames()
 
     def _start_background_update_check(self):
         if not config.get("auto_check_updates", True):
